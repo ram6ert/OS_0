@@ -2,6 +2,7 @@
 #![no_std]
 
 mod lang_items;
+mod mm;
 
 use bootloader_api::BootInfo;
 use bootloader_api::entry_point;

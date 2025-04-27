@@ -144,3 +144,8 @@ impl FrameRegion {
         self.begin
     }
 }
+
+pub trait PageTable {
+    fn map(&mut self, region: &MappingRegion);
+    fn unmap(&mut self, region: &PageRegion);
+}

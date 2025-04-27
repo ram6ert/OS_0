@@ -51,6 +51,14 @@ impl Frame {
     pub fn new(index: usize) -> Self {
         Self(index)
     }
+
+    pub fn offset(self, o: isize) -> Self {
+        Self::new((self.0 as isize + o) as usize)
+    }
+
+    pub fn offset_from(self, other: Self) -> isize {
+        (self.0 - other.0) as isize
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -65,5 +73,74 @@ impl Into<VirtAddress> for Page {
 impl Page {
     pub fn new(index: usize) -> Self {
         Self(index)
+    }
+
+    pub fn offset(self, o: isize) -> Self {
+        Self::new((self.0 as isize + o) as usize)
+    }
+
+    pub fn offset_from(self, other: Self) -> isize {
+        (self.0 - other.0) as isize
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MappingRegion {
+    pub phys_begin: Frame,
+    pub virt_begin: Page,
+    pub num: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct PageRegion {
+    begin: Page,
+    num: usize,
+}
+
+impl PageRegion {
+    pub fn new(begin: Page, num: usize) -> Self {
+        Self { begin, num }
+    }
+
+    #[inline]
+    pub fn start(&self) -> Page {
+        self.begin
+    }
+
+    #[inline]
+    pub fn size(&self) -> usize {
+        self.num
+    }
+
+    #[inline]
+    pub fn end(&self) -> Page {
+        self.begin
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FrameRegion {
+    begin: Frame,
+    num: usize,
+}
+
+impl FrameRegion {
+    pub fn new(begin: Frame, num: usize) -> Self {
+        Self { begin, num }
+    }
+
+    #[inline]
+    pub fn start(&self) -> Frame {
+        self.begin
+    }
+
+    #[inline]
+    pub fn size(&self) -> usize {
+        self.num
+    }
+
+    #[inline]
+    pub fn end(&self) -> Frame {
+        self.begin
     }
 }

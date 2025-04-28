@@ -158,8 +158,16 @@ impl FrameRegion {
     }
 }
 
+bitflags! {
+    pub struct PageFlags: u8 {
+        const Writable = 1;
+        const Usermode = 2;
+        const Executable = 4;
+    }
+}
+
 pub trait PageTable {
-    fn map(&mut self, region: &MappingRegion);
+    fn map(&mut self, region: &MappingRegion, flags: PageFlags);
     fn unmap(&mut self, region: &PageRegion);
     fn bind(&mut self);
 }

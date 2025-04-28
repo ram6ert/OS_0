@@ -38,7 +38,7 @@ impl VirtAddress {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Frame(usize);
 
 impl Into<PhysAddress> for Frame {
@@ -61,7 +61,7 @@ impl Frame {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Page(usize);
 
 impl Into<VirtAddress> for Page {
@@ -149,4 +149,18 @@ pub trait PageTable {
     fn map(&mut self, region: &MappingRegion);
     fn unmap(&mut self, region: &PageRegion);
     fn bind(&mut self);
+}
+
+pub enum FrameAllocError {
+    OutOfMemory,
+    Unknown,
+}
+
+pub enum FrameFreeError {
+    Unknown,
+}
+
+pub trait FrameAllocator {
+    fn alloc(&mut self, count: usize) -> Result<FrameRegion, FrameAllocError>;
+    fn free(&mut self, region: &FrameRegion) -> Result<(), FrameFreeError>;
 }

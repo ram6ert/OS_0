@@ -11,3 +11,4 @@ panic = "abort"
 
 [dependencies]
 bootloader_api = "0.11.10"
+lazy_static = { version = "1.5.0", features = ["spin_no_std"] }

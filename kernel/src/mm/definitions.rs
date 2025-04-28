@@ -57,6 +57,10 @@ impl Frame {
         Self(index)
     }
 
+    pub fn get_index(self) -> usize {
+        self.0
+    }
+
     pub fn offset(self, o: isize) -> Self {
         Self::new((self.0 as isize + o) as usize)
     }
@@ -78,6 +82,10 @@ impl Into<VirtAddress> for Page {
 impl Page {
     pub fn new(index: usize) -> Self {
         Self(index)
+    }
+
+    pub fn get_index(self) -> usize {
+        self.0
     }
 
     pub fn offset(self, o: isize) -> Self {

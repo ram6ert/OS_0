@@ -51,7 +51,7 @@ impl super::definitions::FrameAllocator for StaticFrameAllocator {
             }
 
             self.sort_blocks();
-            todo!()
+            Ok(())
         }
     }
 }

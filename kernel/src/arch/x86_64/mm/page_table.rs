@@ -5,7 +5,7 @@ use crate::mm::{
         FRAME_SIZE, Frame, FrameAllocator, FrameRegion, MappingRegion, Page, PageFlags, PageRegion,
     },
     frame_allocator::FRAME_ALLOCATOR,
-    utils::borrow_from_phys_addr_mut,
+    utils::{borrow_from_phys_addr_mut, calculate_pptr_from_phys_addr},
 };
 
 #[derive(Debug)]
@@ -369,5 +369,19 @@ impl PageTable {
             .set_usermode(flags.contains(PageFlags::Usermode))
             .set_writable(flags.contains(PageFlags::Writable))
             .set_executable(flags.contains(PageFlags::Executable));
+    }
+}
+
+impl PageTable {
+    pub fn new() -> Self {
+        let pml4t = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
+        unsafe {
+            core::slice::from_raw_parts_mut(
+                calculate_pptr_from_phys_addr::<u8>(pml4t.into()),
+                FRAME_SIZE,
+            )
+            .fill(0);
+        }
+        Self { pml4t }
     }
 }

@@ -384,4 +384,8 @@ impl PageTable {
         }
         Self { pml4t }
     }
+
+    pub fn from(pml4t: Frame) -> Self {
+        Self { pml4t }
+    }
 }

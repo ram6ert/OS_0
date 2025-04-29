@@ -93,6 +93,10 @@ impl TableEntry {
         self
     }
 
+    fn get_huge(self) -> bool {
+        self.0 & (1 << 7) != 0
+    }
+
     fn empty() -> Self {
         Self(0)
     }
@@ -131,6 +135,7 @@ impl crate::mm::definitions::PageTable for PageTable {
             } else {
                 unsafe { borrow_from_phys_addr_mut::<TableFrame>(pml4e.get_frame().into()) }
             };
+
             while i != virt_end && Self::get_page_index_4(i) == pml4e_idx {
                 // in pdt
                 let pdpe_idx = Self::get_page_index_3(i);

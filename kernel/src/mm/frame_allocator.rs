@@ -46,7 +46,7 @@ impl super::definitions::FrameAllocator for StaticFrameAllocator {
                         self.blocks[i - 1].start(),
                         self.blocks[i - 1].size() + self.blocks[i].size(),
                     );
-                    self.blocks[i] = FrameRegion::new(Frame::new(0), 0);
+                    self.blocks[i] = FrameRegion::new(Frame::zero(), 0);
                 }
             }
 
@@ -59,7 +59,7 @@ impl super::definitions::FrameAllocator for StaticFrameAllocator {
 impl StaticFrameAllocator {
     pub fn new() -> Self {
         Self {
-            blocks: core::array::from_fn(|_| FrameRegion::new(Frame::new(0), 0)),
+            blocks: core::array::from_fn(|_| FrameRegion::new(Frame::zero(), 0)),
         }
     }
 

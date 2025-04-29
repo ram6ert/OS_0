@@ -42,7 +42,7 @@ pub struct SpinLock<T> {
 unsafe impl<T> Sync for SpinLock<T> {}
 
 impl<T> SpinLock<T> {
-    pub fn new(object: T) -> Self {
+    pub const fn new(object: T) -> Self {
         Self {
             data: UnsafeCell::new(object),
             _lock: AtomicBool::new(false),

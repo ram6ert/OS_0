@@ -67,6 +67,8 @@ impl StaticFrameAllocator {
         self.blocks.sort_unstable_by(|l, r| {
             if l.size() == 0 && r.size() != 0 {
                 Ordering::Greater
+            } else if l.size() != 0 && r.size() == 0 {
+                Ordering::Less
             } else {
                 l.start().cmp(&r.start())
             }

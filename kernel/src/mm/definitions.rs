@@ -5,14 +5,8 @@ pub const PHYSICAL_MAP_BEGIN: usize = 0xffff_8100_0000_0000;
 pub const PHYSICAL_MAP_SIZE: usize = 0x0000_0100_0000_0000;
 pub const PHYSICAL_MAP_END: usize = PHYSICAL_MAP_BEGIN + PHYSICAL_MAP_SIZE;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysAddress(usize);
-
-impl Into<usize> for PhysAddress {
-    fn into(self) -> usize {
-        self.0
-    }
-}
 
 impl PhysAddress {
     pub fn new(addr: usize) -> Self {
@@ -22,16 +16,14 @@ impl PhysAddress {
     pub fn get_frame(self) -> Frame {
         Frame::new(self.0 / FRAME_SIZE)
     }
-}
 
-#[derive(Debug, Clone, Copy)]
-pub struct VirtAddress(usize);
-
-impl Into<usize> for VirtAddress {
-    fn into(self) -> usize {
+    pub fn as_usize(self) -> usize {
         self.0
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct VirtAddress(usize);
 
 impl VirtAddress {
     pub fn new(addr: usize) -> Self {
@@ -40,6 +32,10 @@ impl VirtAddress {
 
     pub fn get_page(self) -> Page {
         Page::new(self.0 / FRAME_SIZE)
+    }
+
+    pub fn as_usize(self) -> usize {
+        self.0
     }
 }
 
@@ -55,6 +51,14 @@ impl Into<PhysAddress> for Frame {
 impl Frame {
     pub fn new(index: usize) -> Self {
         Self(index)
+    }
+
+    pub fn zero() -> Self {
+        Self::new(0)
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.0 == 0
     }
 
     pub fn get_index(self) -> usize {
@@ -82,6 +86,14 @@ impl Into<VirtAddress> for Page {
 impl Page {
     pub fn new(index: usize) -> Self {
         Self(index)
+    }
+
+    pub fn zero() -> Self {
+        Self::new(0)
+    }
+
+    pub fn is_zero(self) -> bool {
+        self.0 == 0
     }
 
     pub fn get_index(self) -> usize {
@@ -159,6 +171,7 @@ impl FrameRegion {
 }
 
 bitflags! {
+    #[derive(Clone, Copy)]
     pub struct PageFlags: u8 {
         const Writable = 1;
         const Usermode = 2;
@@ -172,11 +185,13 @@ pub trait PageTable {
     fn bind(&mut self);
 }
 
+#[derive(Debug)]
 pub enum FrameAllocError {
     OutOfMemory,
     Unknown,
 }
 
+#[derive(Debug)]
 pub enum FrameFreeError {
     Unknown,
 }

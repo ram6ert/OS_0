@@ -1,9 +1,13 @@
 #![no_main]
 #![no_std]
+#![feature(allocator_api, slice_ptr_get)]
 
+mod arch;
 mod lang_items;
 mod mm;
 mod sync;
+
+extern crate alloc;
 
 use bootloader_api::BootInfo;
 use bootloader_api::entry_point;

@@ -230,8 +230,10 @@ impl crate::mm::definitions::PageTable for PageTable {
 
     fn bind(&mut self) {
         unsafe {
-            asm!("mov cr0, rax",
-            in("rax") self.pml4t.get_index())
+            asm!(
+                "shl rax, 12",
+                "mov cr3, rax",
+                in("rax") self.pml4t.get_index())
         };
     }
 }

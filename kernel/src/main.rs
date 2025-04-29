@@ -9,6 +9,7 @@ mod sync;
 
 extern crate alloc;
 
+use arch::x86_64::logging;
 use bootloader_api::BootInfo;
 use bootloader_api::BootloaderConfig;
 use bootloader_api::config::Mapping;
@@ -34,6 +35,7 @@ static CONFIG: BootloaderConfig = {
 entry_point!(kernel_main, config = &CONFIG);
 
 pub fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
+    logging::init();
     for region in boot_info
         .memory_regions
         .iter()
@@ -50,8 +52,9 @@ pub fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             .unwrap();
     }
 
+    trace!("Begin to create new page table.");
     let mut pt = create_new_page_table();
-    pt.bind();
+    //pt.bind();
     loop {
         core::hint::spin_loop();
     }

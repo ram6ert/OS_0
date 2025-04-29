@@ -1,11 +1,14 @@
 use core::arch::asm;
 
-use crate::mm::{
-    definitions::{
-        FRAME_SIZE, Frame, FrameAllocator, FrameRegion, MappingRegion, Page, PageFlags, PageRegion,
+use crate::{
+    mm::{
+        definitions::{
+            FRAME_SIZE, Frame, FrameAllocator, FrameRegion, MappingRegion, Page, PageFlags,
+            PageRegion,
+        },
+        frame_allocator::FRAME_ALLOCATOR,
+        utils::{borrow_from_phys_addr_mut, calculate_pptr_from_phys_addr},
     },
-    frame_allocator::FRAME_ALLOCATOR,
-    utils::{borrow_from_phys_addr_mut, calculate_pptr_from_phys_addr},
 };
 
 #[derive(Debug)]
@@ -285,50 +288,50 @@ impl Drop for PageTable {
         let mut i = begin;
 
         let pml4t = unsafe { borrow_from_phys_addr_mut::<TableFrame>(self.pml4t.into()) };
-        while i != end {
+        while i < end {
             let pml4e_idx = Self::get_page_index_4(i);
             let pml4e = &mut pml4t.0[pml4e_idx];
-            if pml4e.is_empty() {
-                i = i.offset(1);
-                continue;
-            } else {
-                while i != end && Self::get_page_index_4(i) == pml4e_idx {
+            if pml4e.get_present() {
+                while i < end && Self::get_page_index_4(i) == pml4e_idx {
                     let pdpt = unsafe {
                         borrow_from_phys_addr_mut::<TableFrame>(pml4e.get_frame().into())
                     };
                     let pdpe_idx = Self::get_page_index_3(i);
                     let pdpe = &mut pdpt.0[pdpe_idx];
-                    if pdpe.is_empty() {
-                        i = i.offset(1);
-                        continue;
-                    } else {
-                        while i != end && Self::get_page_index_3(i) == pdpe_idx {
-                            let pdt = unsafe {
-                                borrow_from_phys_addr_mut::<TableFrame>(pdpe.get_frame().into())
-                            };
-                            let pde_idx = Self::get_page_index_2(i);
-                            let pde = &mut pdt.0[pde_idx];
-                            if pde.is_empty() {
-                                i = i.offset(1);
-                                continue;
-                            } else {
-                                FRAME_ALLOCATOR
-                                    .lock()
-                                    .free(&FrameRegion::new(pde.get_frame(), 1))
-                                    .unwrap();
+                    if pdpe.get_present() {
+                        if !pdpe.get_huge() {
+                            while i < end && Self::get_page_index_3(i) == pdpe_idx {
+                                let pdt = unsafe {
+                                    borrow_from_phys_addr_mut::<TableFrame>(pdpe.get_frame().into())
+                                };
+                                let pde_idx = Self::get_page_index_2(i);
+                                let pde = &mut pdt.0[pde_idx];
+                                // free pt
+                                if pde.get_present() && !pde.get_huge() {
+                                    FRAME_ALLOCATOR
+                                        .lock()
+                                        .free(&FrameRegion::new(pde.get_frame(), 1))
+                                        .unwrap();
+                                }
+                                i = Self::index_to_page(&[pml4e_idx, pdpe_idx, pde_idx + 1, 0]);
                             }
                         }
+
+                        // free pdt
                         FRAME_ALLOCATOR
                             .lock()
                             .free(&FrameRegion::new(pdpe.get_frame(), 1))
                             .unwrap();
                     }
+                    i = Self::index_to_page(&[pml4e_idx, pdpe_idx + 1, 0, 0]);
                 }
+                // free pdpt
                 FRAME_ALLOCATOR
                     .lock()
                     .free(&FrameRegion::new(pml4e.get_frame(), 1))
                     .unwrap();
             }
+            i = Self::index_to_page(&[pml4e_idx + 1, 0, 0, 0]);
         }
         FRAME_ALLOCATOR
             .lock()
@@ -352,6 +355,14 @@ impl PageTable {
 
     fn get_page_index_1(page: Page) -> usize {
         page.get_index() & 0x1ff
+    }
+
+    fn index_to_page(indices: &[usize; 4]) -> Page {
+        let mut idx = indices[0];
+        for i in 1..4 {
+            idx = (idx << 9) + indices[i];
+        }
+        Page::new(idx)
     }
 
     fn alloc_table_frame(&mut self) -> Frame {

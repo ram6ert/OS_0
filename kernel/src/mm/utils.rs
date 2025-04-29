@@ -1,10 +1,9 @@
+use crate::arch::x86_64::mm::page_table::PageTable as X86PageTable;
 use core::arch::asm;
 
-use crate::arch::x86_64::mm::page_table::PageTable as X86PageTable;
-
 use super::definitions::{
-    FRAME_SIZE, Frame, KERNEL_REGION_BEGIN, KERNEL_STACK_BEGIN, MappingRegion, PHYSICAL_MAP_BEGIN,
-    Page, PageFlags, PageTable, PhysAddress, VirtAddress,
+    Frame, KERNEL_REGION_BEGIN, KERNEL_STACK_BEGIN, MappingRegion, PHYSICAL_MAP_BEGIN, PageFlags,
+    PageTable, PhysAddress, VirtAddress,
 };
 
 pub fn calculate_phys_addr_from_pptr<T>(addr: *mut T) -> PhysAddress {
@@ -38,7 +37,7 @@ pub fn create_new_page_table() -> X86PageTable {
     let mut result = X86PageTable::new();
 
     // 1. kernel region
-    let kernel_region_begin = VirtAddress::new(KERNEL_REGION_BEGIN).get_page();
+    let kernel_region_begin = VirtAddress::new(KERNEL_REGION_BEGIN + 0x10000).get_page();
     let kernel_phys = old_table.resolve(kernel_region_begin).unwrap();
     result.map(
         &MappingRegion {
@@ -53,14 +52,14 @@ pub fn create_new_page_table() -> X86PageTable {
     result.map(
         &MappingRegion {
             phys_begin: Frame::zero(),
-            virt_begin: VirtAddress::new(KERNEL_STACK_BEGIN).get_page(),
+            virt_begin: VirtAddress::new(PHYSICAL_MAP_BEGIN).get_page(),
             num: 128 * 1024 * 1024 / 4096,
         },
         PageFlags::Writable,
     );
 
     // 3. kernel stack, 4K
-    let stack_region_begin = VirtAddress::new(KERNEL_STACK_BEGIN).get_page();
+    let stack_region_begin = VirtAddress::new(KERNEL_STACK_BEGIN + 4096).get_page();
     let stack_phys = old_table.resolve(stack_region_begin).unwrap();
     result.map(
         &MappingRegion {

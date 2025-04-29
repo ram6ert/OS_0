@@ -1,4 +1,4 @@
-use super::serial::{self, COM1, Serial};
+use super::serial;
 
 #[macro_export]
 macro_rules! trace {

@@ -84,7 +84,7 @@ impl TableEntry {
     }
 
     fn get_frame(&self) -> Frame {
-        Frame::new((self.0 >> 12) as usize & (1usize << 36 - 1))
+        Frame::new((self.0 >> 12) as usize & ((1usize << 36) - 1))
     }
 
     fn set_frame(mut self, frame: Frame) -> Self {

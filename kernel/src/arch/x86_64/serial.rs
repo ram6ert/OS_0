@@ -1,27 +1,15 @@
-use core::{arch::asm, fmt::Write};
-use lazy_static::lazy_static;
+use core::fmt::Write;
 
 use crate::sync::SpinLock;
 
-fn in8(port: u16) -> u8 {
-    let mut result: u8;
-    unsafe {
-        asm!("in al, dx", in("dx") port, out("al") result);
-    }
-    result
-}
-
-fn out8(port: u16, data: u8) {
-    unsafe { asm!("out dx, al", in("dx") port, in("al") data) }
-}
+use super::io::{in8, out8};
 
 pub struct Serial {
-    port: u16,
+    pub port: u16,
 }
 
 impl Serial {
-    unsafe fn init(port: u16) -> Self {
-        let result = Serial { port };
+    unsafe fn init(port: u16) {
         // 关闭中断
         out8(port + 1, 0x00);
 
@@ -39,13 +27,15 @@ impl Serial {
 
         // 配置调制调解器
         out8(port + 4, 0x0B);
-
-        result
     }
 
     pub unsafe fn write_byte(&mut self, b: u8) {
         while in8(self.port + 5) & 0x20 == 0 {}
         out8(self.port, b);
+    }
+
+    const fn new(port: u16) -> Self {
+        Self { port }
     }
 }
 
@@ -60,6 +50,28 @@ impl Write for Serial {
     }
 }
 
-lazy_static! {
-    pub static ref COM1: SpinLock<Serial> = SpinLock::new(unsafe { Serial::init(0x3F8) });
+pub struct SyncSerial {
+    serial: SpinLock<Serial>,
+}
+
+impl Write for SyncSerial {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.serial.lock().write_str(s)
+    }
+}
+
+impl SyncSerial {
+    const fn new(port: u16) -> Self {
+        Self {
+            serial: SpinLock::new(Serial::new(port)),
+        }
+    }
+}
+
+pub static mut COM1: SyncSerial = SyncSerial::new(0x3F8);
+
+pub fn init() {
+    unsafe {
+        Serial::init(0x3F8);
+    }
 }

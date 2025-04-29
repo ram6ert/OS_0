@@ -14,7 +14,7 @@
   "features": "-mmx,-sse,+soft-float",
   "position-independent-executables": false,
   "relocation-model": "static",
-  "code-model": "medium",
+  "code-model": "large",
   "pre-link-args": {
     "ld.lld": ["-static", "--no-pie"]
   },

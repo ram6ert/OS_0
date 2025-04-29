@@ -9,7 +9,7 @@ use crate::mm::{
 };
 
 #[derive(Debug)]
-struct PageTable {
+pub struct PageTable {
     pml4t: Frame,
 }
 

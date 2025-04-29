@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use core::arch::asm;
 
 use crate::mm::{

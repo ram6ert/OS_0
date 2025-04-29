@@ -4,13 +4,6 @@ use core::{cmp::Ordering, usize};
 use crate::sync::SpinLock;
 
 use super::definitions::{KERNEL_HEAP_BEGIN, KERNEL_HEAP_SIZE};
-use super::{
-    definitions::{FRAME_SIZE, FrameAllocator, FrameRegion, PhysAddress},
-    frame_allocator::FRAME_ALLOCATOR,
-    utils::{
-        borrow_from_phys_addr_mut, calculate_phys_addr_from_pptr, calculate_pptr_from_phys_addr,
-    },
-};
 
 #[derive(Debug, Clone)]
 struct MemoryHole {

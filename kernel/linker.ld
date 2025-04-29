@@ -46,7 +46,6 @@ SECTIONS {
         *(.eh_frame)
         *(.note .note.*)
         *(.dynamic)
-        *(.debug*)
     }
 
     _kernel_end = .;

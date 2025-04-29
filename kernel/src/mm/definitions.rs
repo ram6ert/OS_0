@@ -1,4 +1,3 @@
-
 use bitflags::bitflags;
 
 pub const FRAME_SIZE: usize = 4096;
@@ -187,6 +186,7 @@ pub trait PageTable {
     fn map(&mut self, region: &MappingRegion, flags: PageFlags);
     fn unmap(&mut self, region: &PageRegion);
     fn bind(&mut self);
+    fn resolve(&self, page: Page) -> Option<Frame>;
 }
 
 #[derive(Debug)]

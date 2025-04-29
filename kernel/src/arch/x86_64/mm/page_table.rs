@@ -236,6 +236,47 @@ impl crate::mm::definitions::PageTable for PageTable {
                 in("rax") self.pml4t.get_index())
         };
     }
+
+    fn resolve(&self, page: Page) -> Option<Frame> {
+        let pml4e_idx = Self::get_page_index_4(page);
+        let pdpe_idx = Self::get_page_index_3(page);
+        let pde_idx = Self::get_page_index_2(page);
+        let pte_idx = Self::get_page_index_1(page);
+
+        let pml4t = unsafe { borrow_from_phys_addr_mut::<TableFrame>(self.pml4t.into()) };
+        let pml4e = pml4t.0[pml4e_idx];
+        if !pml4e.get_present() {
+            return None;
+        }
+
+        let pdpt = unsafe { borrow_from_phys_addr_mut::<TableFrame>(pml4e.get_frame().into()) };
+        let pdpe = pdpt.0[pdpe_idx];
+
+        if !pdpe.get_present() {
+            return None;
+        } else if pdpe.get_huge() {
+            return Some(
+                pdpe.get_frame()
+                    .offset((pde_idx * (1 << 9) + pte_idx) as isize),
+            );
+        }
+
+        let pdt = unsafe { borrow_from_phys_addr_mut::<TableFrame>(pdpe.get_frame().into()) };
+        let pde = pdt.0[pde_idx];
+        if !pde.get_present() {
+            return None;
+        } else if pde.get_huge() {
+            return Some(pde.get_frame().offset(pte_idx as isize));
+        }
+
+        let pt = unsafe { borrow_from_phys_addr_mut::<TableFrame>(pde.get_frame().into()) };
+        let pte = pt.0[pte_idx];
+        if !pte.get_present() {
+            None
+        } else {
+            Some(pte.get_frame())
+        }
+    }
 }
 
 impl Drop for PageTable {
@@ -323,9 +364,10 @@ impl PageTable {
     }
 
     fn set_flags(entry: &mut TableEntry, flags: PageFlags) {
-        entry.set_present(true);
-        entry.set_usermode(flags.contains(PageFlags::Usermode));
-        entry.set_writable(flags.contains(PageFlags::Writable));
-        entry.set_executable(flags.contains(PageFlags::Executable));
+        *entry = entry
+            .set_present(true)
+            .set_usermode(flags.contains(PageFlags::Usermode))
+            .set_writable(flags.contains(PageFlags::Writable))
+            .set_executable(flags.contains(PageFlags::Executable));
     }
 }

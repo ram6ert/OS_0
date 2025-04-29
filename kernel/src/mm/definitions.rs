@@ -1,6 +1,7 @@
 use bitflags::bitflags;
 
 pub const FRAME_SIZE: usize = 4096;
+pub const KERNEL_REGION_BEGIN: usize = 0xffff_8000_0000_0000;
 pub const PHYSICAL_MAP_BEGIN: usize = 0xffff_8100_0000_0000;
 pub const PHYSICAL_MAP_SIZE: usize = 0x0000_0100_0000_0000;
 pub const PHYSICAL_MAP_END: usize = PHYSICAL_MAP_BEGIN + PHYSICAL_MAP_SIZE;

@@ -19,8 +19,10 @@ use mm::definitions::FrameAllocator;
 use mm::definitions::FrameRegion;
 use mm::definitions::KERNEL_STACK_BEGIN;
 use mm::definitions::PHYSICAL_MAP_BEGIN;
+use mm::definitions::PageTable;
 use mm::definitions::PhysAddress;
 use mm::frame_allocator::FRAME_ALLOCATOR;
+use mm::utils::create_new_page_table;
 
 static CONFIG: BootloaderConfig = {
     let mut cfg = BootloaderConfig::new_default();
@@ -47,6 +49,9 @@ pub fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             ))
             .unwrap();
     }
+
+    let mut pt = create_new_page_table();
+    pt.bind();
     loop {
         core::hint::spin_loop();
     }

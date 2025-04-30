@@ -54,7 +54,8 @@ pub fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
     trace!("Begin to create new page table.");
     let mut pt = create_new_page_table();
-    //pt.bind();
+    pt.bind();
+    trace!("Using new page table.");
     loop {
         core::hint::spin_loop();
     }

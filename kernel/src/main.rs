@@ -9,6 +9,7 @@ mod sync;
 
 extern crate alloc;
 
+use arch::x86_64::load_gdt;
 use arch::x86_64::logging;
 use bootloader_api::BootInfo;
 use bootloader_api::BootloaderConfig;
@@ -51,6 +52,11 @@ pub fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             ))
             .unwrap();
     }
+    trace!("Loading new GDT...");
+    unsafe {
+        load_gdt();
+    }
+    trace!("Success!");
 
     trace!("Begin to create new page table.");
     let mut pt = create_new_page_table();

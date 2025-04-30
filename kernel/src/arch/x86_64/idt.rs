@@ -219,6 +219,7 @@ macro_rules! make_interruption_handler {
                     "pop rdi",
                     "iretq",
                     sym $inner,
+                    // out("rdi") _,
                 );
             }
         }

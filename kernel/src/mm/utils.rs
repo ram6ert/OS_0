@@ -99,3 +99,30 @@ fn create_new_page_table(stack: Frame) -> X86PageTable {
 
     result
 }
+
+static FIRST_PAGE_TABLE: SpinLock<Option<X86PageTable>> = SpinLock::new(None);
+static INTERRUPTION_STACK: SpinLock<Option<Frame>> = SpinLock::new(None);
+
+pub fn switch_to_new_page_table<F>(callback: F) -> !
+where
+    F: FnOnce() -> !,
+{
+    trace!("Creating interruption stack...");
+    *INTERRUPTION_STACK.lock() = Some(FRAME_ALLOCATOR.lock().alloc(1).unwrap().start());
+    trace!("Success.");
+    trace!("Trying to create initial page table...");
+    *FIRST_PAGE_TABLE.lock() = Some(create_new_page_table(
+        *INTERRUPTION_STACK.lock().as_ref().unwrap(),
+    ));
+    trace!("Success.");
+    trace!("Trying to switch to new page table and switch stack.");
+    (*FIRST_PAGE_TABLE.lock()).as_ref().unwrap().bind();
+    unsafe {
+        asm!(
+            "mov rax, {0}",
+            "mov rsp, rax",
+            const KERNEL_STACK_BEGIN + FRAME_SIZE * 2
+        )
+    }
+    callback()
+}

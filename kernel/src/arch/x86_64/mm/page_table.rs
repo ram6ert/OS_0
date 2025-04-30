@@ -1,14 +1,11 @@
 use core::arch::asm;
 
-use crate::{
-    mm::{
-        definitions::{
-            FRAME_SIZE, Frame, FrameAllocator, FrameRegion, MappingRegion, Page, PageFlags,
-            PageRegion,
-        },
-        frame_allocator::FRAME_ALLOCATOR,
-        utils::{borrow_from_phys_addr_mut, calculate_pptr_from_phys_addr},
+use crate::mm::{
+    definitions::{
+        FRAME_SIZE, Frame, FrameAllocator, FrameRegion, MappingRegion, Page, PageFlags, PageRegion,
     },
+    frame_allocator::FRAME_ALLOCATOR,
+    utils::{borrow_from_phys_addr_mut, calculate_pptr_from_phys_addr},
 };
 
 #[derive(Debug)]
@@ -133,7 +130,7 @@ impl crate::mm::definitions::PageTable for PageTable {
             let pdpt = if pml4e.get_frame().is_zero() {
                 let frame = self.alloc_table_frame();
                 *pml4e = pml4e.set_frame(frame);
-                Self::set_flags(pml4e, flags);
+                Self::set_flags(pml4e, flags, false);
                 unsafe { borrow_from_phys_addr_mut::<TableFrame>(frame.into()) }
             } else {
                 unsafe { borrow_from_phys_addr_mut::<TableFrame>(pml4e.get_frame().into()) }
@@ -146,7 +143,7 @@ impl crate::mm::definitions::PageTable for PageTable {
                 let pdt = if pdpe.get_frame().is_zero() {
                     let frame = self.alloc_table_frame();
                     *pdpe = pdpe.set_frame(frame);
-                    Self::set_flags(pdpe, flags);
+                    Self::set_flags(pdpe, flags, false);
                     unsafe { borrow_from_phys_addr_mut::<TableFrame>(frame.into()) }
                 } else {
                     unsafe { borrow_from_phys_addr_mut::<TableFrame>(pdpe.get_frame().into()) }
@@ -158,7 +155,7 @@ impl crate::mm::definitions::PageTable for PageTable {
                     let pt = if pde.get_frame().is_zero() {
                         let frame = self.alloc_table_frame();
                         *pde = pde.set_frame(frame);
-                        Self::set_flags(pde, flags);
+                        Self::set_flags(pde, flags, false);
                         unsafe { borrow_from_phys_addr_mut::<TableFrame>(frame.into()) }
                     } else {
                         unsafe { borrow_from_phys_addr_mut::<TableFrame>(pde.get_frame().into()) }
@@ -166,9 +163,8 @@ impl crate::mm::definitions::PageTable for PageTable {
                     while i != virt_end && Self::get_page_index_2(i) == pde_idx {
                         let pte_idx = Self::get_page_index_1(i);
                         let pte = &mut pt.0[pte_idx];
-
                         *pte = pte.set_frame(phys);
-                        Self::set_flags(pte, flags);
+                        Self::set_flags(pte, flags, true);
 
                         i = i.offset(1);
                         phys = phys.offset(1);
@@ -231,7 +227,8 @@ impl crate::mm::definitions::PageTable for PageTable {
         }
     }
 
-    fn bind(&mut self) {
+    #[inline]
+    fn bind(&self) {
         unsafe {
             asm!(
                 "shl rax, 12",
@@ -374,12 +371,12 @@ impl PageTable {
         frame
     }
 
-    fn set_flags(entry: &mut TableEntry, flags: PageFlags) {
+    fn set_flags(entry: &mut TableEntry, flags: PageFlags, is_leave: bool) {
         *entry = entry
             .set_present(true)
-            .set_usermode(flags.contains(PageFlags::Usermode))
-            .set_writable(flags.contains(PageFlags::Writable))
-            .set_executable(flags.contains(PageFlags::Executable));
+            .set_usermode(flags.contains(PageFlags::Usermode) || !is_leave)
+            .set_writable(flags.contains(PageFlags::Writable) || !is_leave)
+            .set_executable(/*flags.contains(PageFlags::Executable)*/ false);
     }
 }
 

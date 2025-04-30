@@ -174,7 +174,7 @@ pub unsafe fn load_idt() {
 
 #[derive(Debug)]
 #[repr(C)]
-struct InterruptStackFrame {
+struct InterruptionStackFrame {
     rip: u64,
     cs: u64,
     rflfags: u64,
@@ -184,7 +184,7 @@ struct InterruptStackFrame {
 
 #[derive(Debug)]
 #[repr(C)]
-struct InterruptStackFrameWithErrorCode {
+struct InterruptionStackFrameWithErrorCode {
     error_code: u64,
     rip: u64,
     cs: u64,
@@ -195,7 +195,7 @@ struct InterruptStackFrameWithErrorCode {
 
 // We do not use "x86-interrupt" call conventions for my preferences
 
-macro_rules! make_interrupt_handler {
+macro_rules! make_interruption_handler {
     ($id: ident => $inner: ident) => {
         #[naked]
         unsafe extern "C" fn $id() {
@@ -236,22 +236,22 @@ fn read_cr2() -> u64 {
     cr2
 }
 
-make_interrupt_handler!(breakpoint => breakpoint_inner);
+make_interruption_handler!(breakpoint => breakpoint_inner);
 
-extern "sysv64" fn breakpoint_inner(frame: &InterruptStackFrame) -> () {
+extern "sysv64" fn breakpoint_inner(frame: &InterruptionStackFrame) -> () {
     trace!("Breakpoint reached at {:x}!", frame.rip);
 }
 
-make_interrupt_handler!(double_fault => double_fault_inner with_error_code);
+make_interruption_handler!(double_fault => double_fault_inner with_error_code);
 
-extern "sysv64" fn double_fault_inner(frame: &InterruptStackFrameWithErrorCode) -> () {
+extern "sysv64" fn double_fault_inner(frame: &InterruptionStackFrameWithErrorCode) -> () {
     trace!("Double fault at {}!", frame.rip);
     panic!("Double fault");
 }
 
-make_interrupt_handler!(page_fault => page_fault_inner with_error_code);
+make_interruption_handler!(page_fault => page_fault_inner with_error_code);
 
-extern "sysv64" fn page_fault_inner(frame: &InterruptStackFrameWithErrorCode) -> () {
+extern "sysv64" fn page_fault_inner(frame: &InterruptionStackFrameWithErrorCode) -> () {
     trace!("Page fault at {} for accessing {}!", frame.rip, read_cr2());
     panic!();
 }

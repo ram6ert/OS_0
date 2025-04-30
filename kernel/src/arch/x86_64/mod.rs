@@ -4,6 +4,7 @@ mod io;
 pub mod logging;
 pub mod mm;
 pub mod serial;
+pub mod utils;
 
 #[allow(unused_imports)]
 pub use gdt::{KERNEL_CODE_DESCRIPTOR, USER_CODE_DESCRIPTOR, load_gdt};

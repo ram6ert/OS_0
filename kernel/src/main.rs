@@ -9,9 +9,7 @@ mod sync;
 
 extern crate alloc;
 
-use arch::x86_64::load_gdt;
-use arch::x86_64::load_idt;
-use arch::x86_64::logging;
+use arch::halt;
 use bootloader_api::BootInfo;
 use bootloader_api::BootloaderConfig;
 use bootloader_api::config::Mapping;
@@ -34,7 +32,7 @@ static CONFIG: BootloaderConfig = {
 entry_point!(kernel_boot, config = &CONFIG);
 
 pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
-    logging::init();
+    arch::init();
     for region in boot_info
         .memory_regions
         .iter()
@@ -50,23 +48,11 @@ pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
             ))
             .unwrap();
     }
-    trace!("Loading new GDT...");
-    unsafe {
-        load_gdt();
-    }
-    trace!("Success!");
-
-    trace!("Loading IDT...");
-    unsafe {
-        load_idt();
-    }
-    trace!("Success!");
-
     switch_to_new_page_table(kernel_main)
 }
 
 fn kernel_main() -> ! {
     loop {
-        core::hint::spin_loop();
+        halt();
     }
 }

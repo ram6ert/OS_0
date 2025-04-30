@@ -20,6 +20,9 @@ static GDT: [GdtEntry; 4] = [
     GdtEntry::USER_CODE,
 ];
 
+pub const KERNEL_CODE_DESCRIPTOR: u16 = 1 * 0x08;
+pub const KERNEL_DATA_DESCRIPTOR: u16 = 2 * 0x08;
+pub const USER_CODE_DESCRIPTOR: u16 = 3 * 0x08;
 
 #[repr(C, packed)]
 struct Gdtr {
@@ -47,8 +50,8 @@ pub unsafe fn load_gdt() {
             "mov gs, ax",
             "mov es, ax",
             in(reg) &gdtr,
-            const KERNEL_CODE_DESCRIPTIOR,
-            const KERNEL_DATA_DESCRIPTIOR,
+            const KERNEL_CODE_DESCRIPTOR,
+            const KERNEL_DATA_DESCRIPTOR,
         );
     }
 }

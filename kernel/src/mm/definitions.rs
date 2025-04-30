@@ -11,6 +11,17 @@ pub const KERNEL_HEAP_END: usize = KERNEL_HEAP_BEGIN + KERNEL_HEAP_SIZE;
 pub const KERNEL_STACK_BEGIN: usize = 0xffff_8800_0000_0000;
 pub const KERNEL_STACK_SIZE: usize = 0x0000_0100_0000_0000;
 
+unsafe extern "C" {
+    pub static TEXT_START: u64;
+    pub static RODATA_START: u64;
+    pub static DATA_START: u64;
+    pub static BSS_START: u64;
+    pub static TEXT_SIZE: u64;
+    pub static RODATA_SIZE: u64;
+    pub static DATA_SIZE: u64;
+    pub static BSS_SIZE: u64;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysAddress(usize);
 
@@ -188,7 +199,7 @@ bitflags! {
 pub trait PageTable {
     fn map(&mut self, region: &MappingRegion, flags: PageFlags);
     fn unmap(&mut self, region: &PageRegion);
-    fn bind(&mut self);
+    fn bind(&self);
     fn resolve(&self, page: Page) -> Option<Frame>;
 }
 

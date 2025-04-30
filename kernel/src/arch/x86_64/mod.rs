@@ -1,7 +1,11 @@
 mod gdt;
+mod idt;
 mod io;
 pub mod logging;
 pub mod mm;
 pub mod serial;
 
-pub use gdt::load_gdt;
+#[allow(unused_imports)]
+pub use gdt::{KERNEL_CODE_DESCRIPTOR, USER_CODE_DESCRIPTOR, load_gdt};
+
+pub use idt::load_idt;

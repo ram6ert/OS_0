@@ -1,4 +1,5 @@
 mod gdt;
+mod idt;
 mod io;
 pub mod logging;
 pub mod mm;

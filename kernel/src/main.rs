@@ -1,6 +1,6 @@
 #![no_main]
 #![no_std]
-#![feature(allocator_api, slice_ptr_get)]
+#![feature(allocator_api, slice_ptr_get, naked_functions, never_type)]
 
 mod arch;
 mod lang_items;
@@ -10,6 +10,7 @@ mod sync;
 extern crate alloc;
 
 use arch::x86_64::load_gdt;
+use arch::x86_64::load_idt;
 use arch::x86_64::logging;
 use bootloader_api::BootInfo;
 use bootloader_api::BootloaderConfig;
@@ -19,23 +20,20 @@ use bootloader_api::info::MemoryRegionKind;
 use mm::definitions::FRAME_SIZE;
 use mm::definitions::FrameAllocator;
 use mm::definitions::FrameRegion;
-use mm::definitions::KERNEL_STACK_BEGIN;
 use mm::definitions::PHYSICAL_MAP_BEGIN;
-use mm::definitions::PageTable;
 use mm::definitions::PhysAddress;
 use mm::frame_allocator::FRAME_ALLOCATOR;
-use mm::utils::create_new_page_table;
+use mm::utils::switch_to_new_page_table;
 
 static CONFIG: BootloaderConfig = {
     let mut cfg = BootloaderConfig::new_default();
     cfg.mappings.physical_memory = Some(Mapping::FixedAddress(PHYSICAL_MAP_BEGIN as u64));
-    cfg.mappings.kernel_stack = Mapping::FixedAddress(KERNEL_STACK_BEGIN as u64);
     cfg
 };
 
-entry_point!(kernel_main, config = &CONFIG);
+entry_point!(kernel_boot, config = &CONFIG);
 
-pub fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
+pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
     logging::init();
     for region in boot_info
         .memory_regions
@@ -58,10 +56,16 @@ pub fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     }
     trace!("Success!");
 
-    trace!("Begin to create new page table.");
-    let mut pt = create_new_page_table();
-    pt.bind();
-    trace!("Using new page table.");
+    trace!("Loading IDT...");
+    unsafe {
+        load_idt();
+    }
+    trace!("Success!");
+
+    switch_to_new_page_table(kernel_main)
+}
+
+fn kernel_main() -> ! {
     loop {
         core::hint::spin_loop();
     }

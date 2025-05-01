@@ -10,19 +10,22 @@ impl GdtEntry {
     const KERNEL_CODE: GdtEntry = GdtEntry(0x00AF9A000000FFFF);
     const KERNEL_DATA: GdtEntry = GdtEntry(0x00CF92000000FFFF);
     const USER_CODE: GdtEntry = GdtEntry(0x00AFFA000000FFFF);
+    const USER_DATA: GdtEntry = GdtEntry(0x00CFF2000000FFFF);
 }
 
 #[unsafe(link_section = ".ldata")]
-static GDT: [GdtEntry; 4] = [
+static GDT: [GdtEntry; 5] = [
     GdtEntry::NULL,
     GdtEntry::KERNEL_CODE,
     GdtEntry::KERNEL_DATA,
     GdtEntry::USER_CODE,
+    GdtEntry::USER_DATA,
 ];
 
 pub const KERNEL_CODE_DESCRIPTOR: u16 = 1 * 0x08;
 pub const KERNEL_DATA_DESCRIPTOR: u16 = 2 * 0x08;
 pub const USER_CODE_DESCRIPTOR: u16 = 3 * 0x08;
+pub const USER_DATA_DESCRIPTOR: u16 = 4 * 0x08;
 
 #[repr(C, packed)]
 struct Gdtr {

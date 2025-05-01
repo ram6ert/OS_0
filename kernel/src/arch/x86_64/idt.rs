@@ -270,14 +270,18 @@ extern "sysv64" fn breakpoint_inner(frame: &InterruptionStackFrame) -> () {
 make_interruption_handler!(double_fault => double_fault_inner with_error_code);
 
 extern "sysv64" fn double_fault_inner(frame: &InterruptionStackFrameWithErrorCode) -> () {
-    trace!("Double fault at {}!", frame.rip);
+    trace!("Double fault at {:x}!", frame.rip);
     panic!("Double fault");
 }
 
 make_interruption_handler!(page_fault => page_fault_inner with_error_code);
 
 extern "sysv64" fn page_fault_inner(frame: &InterruptionStackFrameWithErrorCode) -> () {
-    trace!("Page fault at {} for accessing {}!", frame.rip, read_cr2());
+    trace!(
+        "Page fault at {:x} for accessing {:x}!",
+        frame.rip,
+        read_cr2()
+    );
     panic!();
 }
 

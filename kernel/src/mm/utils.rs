@@ -56,7 +56,7 @@ fn create_new_page_table(stack: Frame) -> X86PageTable {
     // 1. kernel region
     let regions = unsafe {
         [
-            (TEXT_START, TEXT_SIZE, PageFlags::empty()),
+            (TEXT_START, TEXT_SIZE, PageFlags::Executable),
             (RODATA_START, RODATA_SIZE, PageFlags::empty()),
             (DATA_START, DATA_SIZE, PageFlags::Writable),
             (BSS_START, BSS_SIZE, PageFlags::Writable),

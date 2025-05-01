@@ -1,6 +1,6 @@
 use core::fmt::Write;
 
-use crate::sync::SpinLock;
+use crate::sync::SpinLockNoIrq;
 
 use super::io::{in8, out8};
 
@@ -55,7 +55,7 @@ impl Write for Serial {
 }
 
 pub struct SyncSerial {
-    serial: SpinLock<Serial>,
+    serial: SpinLockNoIrq<Serial>,
 }
 
 impl Write for SyncSerial {
@@ -67,7 +67,7 @@ impl Write for SyncSerial {
 impl SyncSerial {
     const fn new(port: u16) -> Self {
         Self {
-            serial: SpinLock::new(Serial::new(port)),
+            serial: SpinLockNoIrq::new(Serial::new(port)),
         }
     }
 }

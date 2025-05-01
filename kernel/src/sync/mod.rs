@@ -1,4 +1,4 @@
 #![allow(dead_code)]
-mod spin_lock;
+mod mutex;
 
-pub use spin_lock::SpinLock;
+pub use mutex::{SpinLock, SpinLockNoIrq};

@@ -52,6 +52,7 @@ pub unsafe fn load_gdt() {
             in(reg) &gdtr,
             const KERNEL_CODE_DESCRIPTOR,
             const KERNEL_DATA_DESCRIPTOR,
+            out("ax") _,
         );
     }
 }

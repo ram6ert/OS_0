@@ -1,0 +1,61 @@
+use core::arch::asm;
+
+use super::io::out8;
+
+const PIC_MASTER_CMD_PORT: u16 = 0x20;
+const PIC_SLAVE_CMD_PORT: u16 = 0xA0;
+const PIC_MASTER_DATA_PORT: u16 = 0x21;
+const PIC_SLAVE_DATA_PORT: u16 = 0xA1;
+
+pub unsafe fn disable_irq() {
+    unsafe {
+        asm!("cli");
+    }
+}
+
+pub unsafe fn enable_irq() {
+    unsafe {
+        asm!("sti");
+    }
+}
+
+pub unsafe fn init_8259a() {
+    // disable irq
+    unsafe {
+        disable_irq();
+        out8(PIC_MASTER_DATA_PORT, 0xff);
+        out8(PIC_SLAVE_DATA_PORT, 0xff);
+    }
+
+    unsafe {
+        out8(PIC_MASTER_CMD_PORT, 0x11);
+        out8(PIC_MASTER_DATA_PORT, 0x20);
+        out8(PIC_MASTER_DATA_PORT, 0x04);
+        out8(PIC_MASTER_DATA_PORT, 0x01);
+
+        out8(PIC_SLAVE_CMD_PORT, 0x11);
+        out8(PIC_SLAVE_DATA_PORT, 0x28);
+        out8(PIC_SLAVE_DATA_PORT, 0x02);
+        out8(PIC_SLAVE_DATA_PORT, 0x01);
+    }
+
+    // re-enable irq
+    unsafe {
+        out8(PIC_MASTER_DATA_PORT, 0xfa);
+        out8(PIC_SLAVE_DATA_PORT, 0xff);
+        enable_irq();
+    }
+}
+
+pub unsafe fn send_eoi(idx: u8) {
+    if idx < 8 {
+        unsafe {
+            out8(PIC_MASTER_CMD_PORT, 0x20);
+        }
+    } else {
+        unsafe {
+            out8(PIC_SLAVE_CMD_PORT, 0x20);
+            out8(PIC_MASTER_CMD_PORT, 0x20);
+        }
+    }
+}

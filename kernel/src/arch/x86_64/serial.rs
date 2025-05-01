@@ -1,6 +1,6 @@
 use core::fmt::Write;
 
-use crate::sync::SpinLock;
+use crate::sync::SpinLockNoIrq;
 
 use super::io::{in8, out8};
 
@@ -10,28 +10,32 @@ pub struct Serial {
 
 impl Serial {
     unsafe fn init(port: u16) {
-        // 关闭中断
-        out8(port + 1, 0x00);
+        unsafe {
+            // disable interruption
+            out8(port + 1, 0x00);
 
-        // 设置访问波特率除数寄存器
-        out8(port + 3, 0x80);
-        // 设置波特率为 115200 / 3 = 38400
-        out8(port + 0, 0x03);
-        out8(port + 1, 0x00);
+            // baudrate register
+            out8(port + 3, 0x80);
+            // baudrate 115200 / 3 = 38400
+            out8(port + 0, 0x03);
+            out8(port + 1, 0x00);
 
-        // 设置访问数据寄存器，设置 8 位数据长度
-        out8(port + 3, 0x03);
+            // data register
+            out8(port + 3, 0x03);
 
-        // 启用并设置 FIFO
-        out8(port + 2, 0xC7);
+            // FIFO
+            out8(port + 2, 0xC7);
 
-        // 配置调制调解器
-        out8(port + 4, 0x0B);
+            // modem
+            out8(port + 4, 0x0B);
+        }
     }
 
     pub unsafe fn write_byte(&mut self, b: u8) {
-        while in8(self.port + 5) & 0x20 == 0 {}
-        out8(self.port, b);
+        unsafe {
+            while in8(self.port + 5) & 0x20 == 0 {}
+            out8(self.port, b);
+        }
     }
 
     const fn new(port: u16) -> Self {
@@ -51,7 +55,7 @@ impl Write for Serial {
 }
 
 pub struct SyncSerial {
-    serial: SpinLock<Serial>,
+    serial: SpinLockNoIrq<Serial>,
 }
 
 impl Write for SyncSerial {
@@ -63,7 +67,7 @@ impl Write for SyncSerial {
 impl SyncSerial {
     const fn new(port: u16) -> Self {
         Self {
-            serial: SpinLock::new(Serial::new(port)),
+            serial: SpinLockNoIrq::new(Serial::new(port)),
         }
     }
 }

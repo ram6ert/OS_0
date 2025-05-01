@@ -80,6 +80,10 @@ impl<T, L: Listener> Mutex<T, L> {
         }
         MutexGuard::new(self)
     }
+
+    pub unsafe fn get_mut(&self) -> &mut T {
+        unsafe { &mut *self.data.get() }
+    }
 }
 
 // Spin

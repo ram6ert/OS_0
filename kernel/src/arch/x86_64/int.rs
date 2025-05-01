@@ -7,12 +7,14 @@ const PIC_SLAVE_CMD_PORT: u16 = 0xA0;
 const PIC_MASTER_DATA_PORT: u16 = 0x21;
 const PIC_SLAVE_DATA_PORT: u16 = 0xA1;
 
+#[inline(always)]
 pub unsafe fn disable_irq() {
     unsafe {
         asm!("cli");
     }
 }
 
+#[inline(always)]
 pub unsafe fn enable_irq() {
     unsafe {
         asm!("sti");

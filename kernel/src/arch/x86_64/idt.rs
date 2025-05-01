@@ -1,9 +1,9 @@
 #![allow(dead_code)]
+use crate::trace;
+
 use super::gdt;
 use core::arch::{asm, naked_asm};
 use lazy_static::lazy_static;
-
-use crate::trace;
 
 #[repr(u8)]
 enum GateType {
@@ -88,8 +88,8 @@ struct Idt {
     simd_fp_exception: IdtEntry,
     virtualization_exception: IdtEntry,
     control_protection_exception: IdtEntry,
-    _intel_reserved_1: [IdtEntry; 8],
-    user_define: [IdtEntry; 224],
+    _intel_reserved_1: [IdtEntry; 10],
+    user_define: [IdtEntry; 16],
 }
 
 impl Idt {
@@ -117,8 +117,8 @@ impl Idt {
             simd_fp_exception: IdtEntry::default(),
             virtualization_exception: IdtEntry::default(),
             control_protection_exception: IdtEntry::default(),
-            _intel_reserved_1: [IdtEntry::default(); 8],
-            user_define: [IdtEntry::default(); 224],
+            _intel_reserved_1: [IdtEntry::default(); 10],
+            user_define: [IdtEntry::default(); 16],
         }
     }
 }

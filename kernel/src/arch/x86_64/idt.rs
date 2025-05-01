@@ -175,16 +175,6 @@ pub unsafe fn load_idt() {
 #[derive(Debug)]
 #[repr(C)]
 struct InterruptionStackFrame {
-    rip: u64,
-    cs: u64,
-    rflfags: u64,
-    rsp: u64,
-    ss: u64,
-}
-
-#[derive(Debug)]
-#[repr(C)]
-struct InterruptionStackFrameWithErrorCode {
     error_code: u64,
     rip: u64,
     cs: u64,
@@ -201,25 +191,18 @@ macro_rules! make_interruption_handler {
         unsafe extern "C" fn $id() {
             unsafe {
                 naked_asm!(
+                    "push rdi",
                     "mov rdi, rsp",
+                    "add rdi, 8",
+                    "push rax", "push rbx", "push rcx", "push rdx", "push rbp", "push rsi",
+                    "push r8", "push r9", "push r10", "push r11", "push r12", "push r13", "push r14",
+                    "push r15",
                     "call {0}",
-                    "iretq",
-                    sym $inner,
-                );
-            }
-        }
-    };
-    ($id: ident => $inner: ident with_error_code) => {
-        #[naked]
-        unsafe extern "C" fn $id() {
-            unsafe {
-                naked_asm!(
-                    "mov rdi, rsp",
-                    "call {0}",
+                    "pop r15", "pop r14", "pop r13", "pop r12", "pop r11", "pop r10", "pop r9", "pop r8",
+                    "pop rsi", "pop rbp", "pop rdx", "pop rcx", "pop rbx", "pop rax",
                     "pop rdi",
                     "iretq",
                     sym $inner,
-                    // out("rdi") _,
                 );
             }
         }
@@ -243,16 +226,21 @@ extern "sysv64" fn breakpoint_inner(frame: &InterruptionStackFrame) -> () {
     trace!("Breakpoint reached at {:x}!", frame.rip);
 }
 
-make_interruption_handler!(double_fault => double_fault_inner with_error_code);
+make_interruption_handler!(double_fault => double_fault_inner);
 
-extern "sysv64" fn double_fault_inner(frame: &InterruptionStackFrameWithErrorCode) -> () {
+extern "sysv64" fn double_fault_inner(frame: &InterruptionStackFrame) -> () {
     trace!("Double fault at {}!", frame.rip);
     panic!("Double fault");
 }
 
-make_interruption_handler!(page_fault => page_fault_inner with_error_code);
+make_interruption_handler!(page_fault => page_fault_inner);
 
-extern "sysv64" fn page_fault_inner(frame: &InterruptionStackFrameWithErrorCode) -> () {
-    trace!("Page fault at {} for accessing {}!", frame.rip, read_cr2());
+extern "sysv64" fn page_fault_inner(frame: &InterruptionStackFrame) -> () {
+    trace!(
+        "Page fault at {:x} for accessing {:x}!",
+        frame.rip,
+        read_cr2()
+    );
     panic!();
 }
+

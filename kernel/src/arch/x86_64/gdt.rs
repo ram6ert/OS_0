@@ -40,8 +40,8 @@ pub unsafe fn load_gdt() {
             "mov ax, {2}",
             "mov ss, ax",
             "push {1}",
-            "lea {0}, [rip + 2f]",
-            "push {0}",
+            "lea rax, [rip + 2f]",
+            "push rax",
             "retfq",
             "2:",
             "mov ax, {2}",
@@ -52,7 +52,7 @@ pub unsafe fn load_gdt() {
             in(reg) &gdtr,
             const KERNEL_CODE_DESCRIPTOR,
             const KERNEL_DATA_DESCRIPTOR,
-            out("ax") _,
+            out("rax") _,
         );
     }
 }

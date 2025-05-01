@@ -132,7 +132,7 @@ lazy_static! {
             breakpoint as u64,
             gdt::KERNEL_CODE_DESCRIPTOR,
             GateType::TrapGate,
-            PrivilegeLevel::Ring3,
+            PrivilegeLevel::Ring0,
             true,
         );
 
@@ -140,7 +140,7 @@ lazy_static! {
             double_fault as u64,
             gdt::KERNEL_CODE_DESCRIPTOR,
             GateType::TrapGate,
-            PrivilegeLevel::Ring3,
+            PrivilegeLevel::Ring0,
             true,
         );
 
@@ -148,7 +148,7 @@ lazy_static! {
             page_fault as u64,
             gdt::KERNEL_CODE_DESCRIPTOR,
             GateType::TrapGate,
-            PrivilegeLevel::Ring3,
+            PrivilegeLevel::Ring0,
             true,
         );
 
@@ -156,7 +156,7 @@ lazy_static! {
             timer as u64,
             gdt::KERNEL_CODE_DESCRIPTOR,
             GateType::TrapGate,
-            PrivilegeLevel::Ring3,
+            PrivilegeLevel::Ring0,
             true,
         );
 

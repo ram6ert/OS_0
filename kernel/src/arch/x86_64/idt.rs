@@ -67,7 +67,7 @@ impl IdtEntry {
 
 #[repr(C, align(4096))]
 struct Idt {
-    devide_error: IdtEntry,
+    division_error: IdtEntry,
     debug_exception: IdtEntry,
     nmi_interrupt: IdtEntry,
     breakpoint: IdtEntry,
@@ -96,7 +96,7 @@ struct Idt {
 impl Idt {
     const fn default() -> Self {
         Self {
-            devide_error: IdtEntry::default(),
+            division_error: IdtEntry::default(),
             debug_exception: IdtEntry::default(),
             nmi_interrupt: IdtEntry::default(),
             breakpoint: IdtEntry::default(),
@@ -187,7 +187,7 @@ pub unsafe fn load_idt() {
 struct InterruptionStackFrame {
     rip: u64,
     cs: u64,
-    rflfags: u64,
+    rflags: u64,
     rsp: u64,
     ss: u64,
 }

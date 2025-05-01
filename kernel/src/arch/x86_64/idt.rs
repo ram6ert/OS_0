@@ -257,7 +257,6 @@ extern "sysv64" fn page_fault_inner(frame: &InterruptionStackFrame) -> () {
 make_interruption_handler!(timer => timer_inner);
 
 extern "sysv64" fn timer_inner(_frame: &InterruptionStackFrame) -> () {
-    trace!("Timer");
     unsafe {
         send_eoi(0);
     }

@@ -1,6 +1,8 @@
 use core::arch::asm;
 
-use super::{int::init_8259a, load_gdt, load_idt, logging, timer::init_timer};
+use super::{
+    int::init_8259a, load_gdt, load_idt, logging, syscall::init_syscall, timer::init_timer,
+};
 
 #[inline]
 pub fn halt() {
@@ -16,11 +18,12 @@ pub fn init() {
         load_idt();
         init_8259a();
         init_timer();
-        write_msrs();
+        init_nonexecutable_paging();
+        init_syscall();
     }
 }
 
-unsafe fn rdmsr(addr: u32) -> u64 {
+pub unsafe fn rdmsr(addr: u32) -> u64 {
     let low: u32;
     let high: u32;
     unsafe {
@@ -34,7 +37,7 @@ unsafe fn rdmsr(addr: u32) -> u64 {
     ((high as u64) << 32) | (low as u64)
 }
 
-unsafe fn wrmsr(addr: u32, data: u64) {
+pub unsafe fn wrmsr(addr: u32, data: u64) {
     unsafe {
         asm!(
             "wrmsr",
@@ -45,10 +48,9 @@ unsafe fn wrmsr(addr: u32, data: u64) {
     }
 }
 
-unsafe fn write_msrs() {
-    // enable non-executable and syscall
+unsafe fn init_nonexecutable_paging() {
     unsafe {
         let efer = rdmsr(0xC0000080);
-        wrmsr(0xC0000080, efer | 0x801);
+        wrmsr(0xC0000080, efer | 0x800);
     }
 }

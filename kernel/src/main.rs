@@ -52,6 +52,7 @@ pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
 }
 
 fn kernel_main() -> ! {
+    trace!("Kernel main.");
     loop {
         halt();
     }

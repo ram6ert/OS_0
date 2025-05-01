@@ -171,7 +171,7 @@ struct Idtr {
 }
 
 pub unsafe fn load_idt() {
-    let size = (size_of_val(&IDT) - 1) as u16;
+    let size = (size_of_val(&*IDT) - 1) as u16;
     let ptr = &*IDT as *const Idt as u64;
     let idtr = Idtr { size, ptr };
     unsafe {

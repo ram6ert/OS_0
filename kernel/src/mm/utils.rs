@@ -110,19 +110,24 @@ where
     trace!("Creating interruption stack...");
     *INTERRUPTION_STACK.lock() = Some(FRAME_ALLOCATOR.lock().alloc(1).unwrap().start());
     trace!("Success.");
+
     trace!("Trying to create initial page table...");
-    *FIRST_PAGE_TABLE.lock() = Some(create_new_page_table(
+    (*FIRST_PAGE_TABLE.lock()) = Some(create_new_page_table(
         *INTERRUPTION_STACK.lock().as_ref().unwrap(),
     ));
     trace!("Success.");
+
     trace!("Trying to switch to new page table and switch stack.");
-    (*FIRST_PAGE_TABLE.lock()).as_ref().unwrap().bind();
+    // No variables should be on the stack after here
     unsafe {
+        // No lock guard, so we have to do so
+        FIRST_PAGE_TABLE.get_mut().as_ref().unwrap().bind();
         asm!(
             "mov rax, {0}",
             "mov rsp, rax",
             const KERNEL_STACK_BEGIN + FRAME_SIZE * 2
         )
     }
+
     callback()
 }

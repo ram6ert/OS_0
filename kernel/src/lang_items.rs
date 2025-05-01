@@ -1,9 +1,12 @@
 use core::{arch::asm, panic::PanicInfo};
 
-use crate::trace;
+use crate::{arch::disable_irq, trace};
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+    unsafe {
+        disable_irq();
+    }
     trace!(
         "KERNEL PANICKED!\n{}",
         info.message().as_str().unwrap_or("Unknown reason")

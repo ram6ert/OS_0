@@ -1,6 +1,6 @@
 use core::arch::asm;
 
-use super::{load_gdt, load_idt, logging};
+use super::{int::init_8259a, load_gdt, load_idt, logging, timer::init_timer};
 
 pub fn halt() {
     unsafe {
@@ -13,5 +13,7 @@ pub fn init() {
     unsafe {
         load_gdt();
         load_idt();
+        init_8259a();
+        init_timer();
     }
 }

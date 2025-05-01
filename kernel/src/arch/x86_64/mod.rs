@@ -5,6 +5,7 @@ mod io;
 pub mod logging;
 pub mod mm;
 pub mod serial;
+mod timer;
 pub mod utils;
 
 #[allow(unused_imports)]

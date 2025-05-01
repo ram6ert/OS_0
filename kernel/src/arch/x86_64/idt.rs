@@ -1,9 +1,10 @@
 #![allow(dead_code)]
-use crate::trace;
 
 use super::gdt;
 use core::arch::{asm, naked_asm};
 use lazy_static::lazy_static;
+
+use crate::{arch::x86_64::int::send_eoi, trace};
 
 #[repr(u8)]
 enum GateType {
@@ -150,6 +151,15 @@ lazy_static! {
             PrivilegeLevel::Ring3,
             true,
         );
+
+        idt.user_define[0] = IdtEntry::new(
+            timer as u64,
+            gdt::KERNEL_CODE_DESCRIPTOR,
+            GateType::TrapGate,
+            PrivilegeLevel::Ring3,
+            true,
+        );
+
         idt
     };
 }
@@ -244,3 +254,11 @@ extern "sysv64" fn page_fault_inner(frame: &InterruptionStackFrame) -> () {
     panic!();
 }
 
+make_interruption_handler!(timer => timer_inner);
+
+extern "sysv64" fn timer_inner(_frame: &InterruptionStackFrame) -> () {
+    trace!("Timer");
+    unsafe {
+        send_eoi(0);
+    }
+}

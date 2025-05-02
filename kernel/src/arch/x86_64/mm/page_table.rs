@@ -228,7 +228,7 @@ impl crate::mm::definitions::PageTable for PageTable {
     }
 
     #[inline(always)]
-    fn bind(&self) {
+    unsafe fn bind(&self) {
         unsafe {
             asm!(
                 "shl rax, 12",

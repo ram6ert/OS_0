@@ -200,7 +200,7 @@ bitflags! {
 pub trait PageTable {
     fn map(&mut self, region: &MappingRegion, flags: PageFlags);
     fn unmap(&mut self, region: &PageRegion);
-    fn bind(&self);
+    unsafe fn bind(&self);
     fn resolve(&self, page: Page) -> Option<Frame>;
 }
 

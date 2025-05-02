@@ -209,15 +209,6 @@ struct InterruptionStackFrameWithErrorCode {
 // We do not use "x86-interrupt" call conventions for my preferences
 
 global_asm!(
-    ".macro swapgs_if_required",
-    "cmp word ptr [rsp + 8], 8",
-    "je 2f",
-    "swapgs",
-    "2:",
-    ".endmacro"
-);
-
-global_asm!(
     ".macro save_registers",
     "push rax",
     "push rbx",
@@ -262,20 +253,30 @@ macro_rules! make_interruption_handler {
             unsafe {
                 naked_asm!(
                     "cli",
-                    "swapgs_if_required",
-                    "push rbp",
-                    "mov rbp, rsp",
-                    "mov rsp, {0}",
+                    "cmp word ptr [rsp + 8], 8",
+                    "je 2f",
+                    // user, do not switch
                     "push rdi",
                     "mov rdi, rsp",
-                    "sub rdi, 8",
+                    "add rdi, 8",
                     "save_registers",
                     "call {1}",
                     "restore_registers",
                     "pop rdi",
+                    "jmp 3f",
+                    // kernel, switch stack
+                    "2:",
+                    "push rbp",
+                    "mov rbp, rsp",
+                    "mov rsp, {0}",
+                    "save_registers",
+                    "mov rdi, rbp",
+                    "add rdi, 8",
+                    "call {1}",
+                    "restore_registers",
                     "mov rsp, rbp",
                     "pop rbp",
-                    "swapgs_if_required",
+                    "3:",
                     "iretq",
                     const KERNEL_ISTACK_END,
                     sym $inner,
@@ -287,23 +288,33 @@ macro_rules! make_interruption_handler {
         #[naked]
         unsafe extern "C" fn $id() {
             unsafe {
-            naked_asm!(
+                naked_asm!(
                     "cli",
-                    "swapgs_if_required",
-                    "push rbp",
-                    "mov rbp, rsp",
-                    "mov rsp, {0}",
+                    "cmp word ptr [rsp + 8], 8",
+                    "je 2f",
+                    // user, do not switch
                     "push rdi",
                     "mov rdi, rsp",
-                    "sub rdi, 8",
+                    "add rdi, 8",
                     "save_registers",
                     "call {1}",
                     "restore_registers",
                     "pop rdi",
+                    "jmp 3f",
+                    // kernel, switch stack
+                    "2:",
+                    "push rbp",
+                    "mov rbp, rsp",
+                    "mov rsp, {0}",
+                    "save_registers",
+                    "mov rdi, rbp",
+                    "add rdi, 8",
+                    "call {1}",
+                    "restore_registers",
                     "mov rsp, rbp",
                     "pop rbp",
+                    "3:",
                     "add rsp, 8",
-                    "swapgs_if_required",
                     "iretq",
                     const KERNEL_ISTACK_END,
                     sym $inner,

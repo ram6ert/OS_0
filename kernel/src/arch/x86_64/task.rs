@@ -1,4 +1,6 @@
-use core::{arch::asm, intrinsics::unreachable};
+use core::arch::asm;
+
+use crate::arch::x86_64::gdt::USER_DATA_DESCRIPTOR;
 
 use super::int::set_gsbase;
 
@@ -35,11 +37,16 @@ impl RegisterStore {
 pub unsafe fn jump_to(addr: u64) -> ! {
     unsafe {
         asm!(
+            "mov ds, ax",
+            "mov es, ax",
+            "mov fs, ax",
+            "mov gs, ax",
             "mov r11, 0x200",
             "sysretq",
+            in("ax") USER_DATA_DESCRIPTOR,
             in("rcx") addr,
         );
-        unreachable();
+        unreachable!()
     }
 }
 

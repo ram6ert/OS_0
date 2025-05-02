@@ -1,7 +1,13 @@
 use core::arch::asm;
 
+use crate::mm::definitions::{Frame, PageTable};
+
 use super::{
-    int::init_8259a, load_gdt, load_idt, logging, syscall::init_syscall, timer::init_timer,
+    int::{init_8259a, init_gsbase},
+    load_gdt, load_idt, logging,
+    mm::page_table::PageTable as X86PageTable,
+    syscall::init_syscall,
+    timer::init_timer,
 };
 
 #[inline(always)]
@@ -20,6 +26,7 @@ pub fn init() {
         init_timer();
         init_nonexecutable_paging();
         init_syscall();
+        init_gsbase();
     }
 }
 

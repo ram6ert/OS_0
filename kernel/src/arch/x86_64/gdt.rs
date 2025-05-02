@@ -2,7 +2,7 @@
 
 use core::{arch::asm, u16};
 
-use crate::{mm::definitions::KERNEL_ISTACK_END, trace};
+use crate::mm::definitions::KERNEL_ISTACK_END;
 
 #[repr(transparent)]
 struct GdtEntry(u64);

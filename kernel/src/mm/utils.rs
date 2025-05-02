@@ -1,21 +1,19 @@
+use lazy_static::lazy_static;
+
 use crate::{
     arch::{
-        enable_irq,
-        {enable_external_irq, mm::page_table::PageTable as ArchPageTable},
+        mm::page_table::PageTable as ArchPageTable, x86_64::utils::get_current_page_table_frame,
     },
     mm::{
         definitions::{FRAME_SIZE, FrameAllocator},
         frame_allocator::FRAME_ALLOCATOR,
     },
     sync::SpinLock,
-    trace,
 };
-use core::arch::asm;
 
 use super::definitions::{
-    BSS_SIZE, BSS_START, DATA_SIZE, DATA_START, Frame, KERNEL_ISTACK_END, KERNEL_STACK_BEGIN,
-    MappingRegion, PHYSICAL_MAP_BEGIN, PageFlags, PageTable, PhysAddress, RODATA_SIZE,
-    RODATA_START, TEXT_SIZE, TEXT_START, VirtAddress,
+    BSS_SIZE, BSS_START, DATA_SIZE, DATA_START, Frame, MappingRegion, PHYSICAL_MAP_BEGIN,
+    PageTable, PhysAddress, RODATA_SIZE, RODATA_START, TEXT_SIZE, TEXT_START, VirtAddress,
 };
 
 pub fn calculate_phys_addr_from_pptr<T>(addr: *mut T) -> PhysAddress {
@@ -32,124 +30,73 @@ pub unsafe fn borrow_from_phys_addr_mut<T>(addr: PhysAddress) -> &'static mut T 
     unsafe { &mut *calculate_pptr_from_phys_addr::<T>(addr) }
 }
 
-fn get_current_page_table_frame() -> Frame {
-    let cr3: usize;
-    unsafe {
-        asm!(
-            "mov rax, cr3",
-            out("rax") cr3
-        );
-    }
-    Frame::new((cr3 >> 12) & ((1 << 36) - 1))
+lazy_static! {
+    pub static ref INTERRUPTION_STACK: Frame = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
 }
 
-fn get_rsp() -> u64 {
-    let rsp: u64;
-    unsafe {
-        asm!("mov rax, rsp", out("rax") rsp);
-    }
-    rsp
+#[derive(Clone)]
+pub struct KernelMappingInfo {
+    pub text: MappingRegion,
+    pub rodata: MappingRegion,
+    pub data: MappingRegion,
+    pub bss: MappingRegion,
 }
 
-fn create_new_page_table(istack: Frame, current_stack_idx: usize) -> ArchPageTable {
-    let old_table_frame = get_current_page_table_frame();
-    let old_table = ArchPageTable::from(old_table_frame);
-    let mut result = ArchPageTable::new();
+static INITIAL_PAGE_TABLE: SpinLock<Option<ArchPageTable>> = SpinLock::new(None);
 
-    // 1. kernel region
-    let regions = unsafe {
-        [
-            (TEXT_START, TEXT_SIZE, PageFlags::Executable),
-            (RODATA_START, RODATA_SIZE, PageFlags::empty()),
-            (DATA_START, DATA_SIZE, PageFlags::Writable),
-            (BSS_START, BSS_SIZE, PageFlags::Writable),
-        ]
-    };
-    for region in regions {
-        let virt_begin = VirtAddress::new(region.0 as usize).get_page();
-        let phys_begin = old_table.resolve(virt_begin).unwrap();
-        let num = (region.1 as usize) / FRAME_SIZE;
-        result.map(
-            &MappingRegion {
-                phys_begin,
-                virt_begin,
-                num,
+pub static KERNEL_MAPPING_INFO: SpinLock<Option<KernelMappingInfo>> = SpinLock::new(None);
+
+pub fn init_mm() {
+    let mut ipt = INITIAL_PAGE_TABLE.lock();
+
+    *ipt = Some(ArchPageTable::from(unsafe {
+        get_current_page_table_frame()
+    }));
+
+    let mut kmi = KERNEL_MAPPING_INFO.lock();
+
+    unsafe {
+        *kmi = Some(KernelMappingInfo {
+            text: MappingRegion {
+                phys_begin: ipt
+                    .as_ref()
+                    .unwrap()
+                    .resolve(VirtAddress::new(TEXT_START as usize).get_page())
+                    .unwrap(),
+                virt_begin: VirtAddress::new(TEXT_START as usize).get_page(),
+                num: TEXT_SIZE as usize / FRAME_SIZE,
             },
-            region.2,
-        );
+            rodata: MappingRegion {
+                phys_begin: ipt
+                    .as_ref()
+                    .unwrap()
+                    .resolve(VirtAddress::new(RODATA_START as usize).get_page())
+                    .unwrap(),
+                virt_begin: VirtAddress::new(RODATA_START as usize).get_page(),
+                num: RODATA_SIZE as usize / FRAME_SIZE,
+            },
+            data: MappingRegion {
+                phys_begin: ipt
+                    .as_ref()
+                    .unwrap()
+                    .resolve(VirtAddress::new(DATA_START as usize).get_page())
+                    .unwrap(),
+                virt_begin: VirtAddress::new(DATA_START as usize).get_page(),
+                num: DATA_SIZE as usize / FRAME_SIZE,
+            },
+            bss: MappingRegion {
+                phys_begin: ipt
+                    .as_ref()
+                    .unwrap()
+                    .resolve(VirtAddress::new(BSS_START as usize).get_page())
+                    .unwrap(),
+                virt_begin: VirtAddress::new(BSS_START as usize).get_page(),
+                num: BSS_SIZE as usize / FRAME_SIZE,
+            },
+        });
     }
-
-    // 2. phys region, 128M
-    result.map(
-        &MappingRegion {
-            phys_begin: Frame::zero(),
-            virt_begin: VirtAddress::new(PHYSICAL_MAP_BEGIN).get_page(),
-            num: 128 * 1024 * 1024 / 4096,
-        },
-        PageFlags::Writable,
-    );
-
-    // 3. int stack, 4K
-    let istack_region_begin = VirtAddress::new(KERNEL_ISTACK_END - 1).get_page();
-    result.map(
-        &MappingRegion {
-            phys_begin: istack,
-            virt_begin: istack_region_begin,
-            num: 1,
-        },
-        PageFlags::Writable,
-    );
-
-    // 4. current stack, 4K
-    let stack_region_begin = VirtAddress::new(KERNEL_STACK_BEGIN)
-        .get_page()
-        .offset(2 * current_stack_idx as isize + 1);
-    let stack = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
-    result.map(
-        &MappingRegion {
-            phys_begin: stack,
-            virt_begin: stack_region_begin,
-            num: 1,
-        },
-        PageFlags::Writable,
-    );
-
-    result
 }
 
-static FIRST_PAGE_TABLE: SpinLock<Option<ArchPageTable>> = SpinLock::new(None);
-static INTERRUPTION_STACK: SpinLock<Option<Frame>> = SpinLock::new(None);
-static IDLE_STACK: SpinLock<Option<Frame>> = SpinLock::new(None);
-
-pub fn switch_to_new_page_table<F>(callback: F) -> !
-where
-    F: FnOnce() -> !,
-{
-    trace!("Creating interruption stack...");
-    *INTERRUPTION_STACK.lock() = Some(FRAME_ALLOCATOR.lock().alloc(1).unwrap().start());
-    trace!("Success.");
-
-    trace!("Trying to create initial page table...");
-    (*FIRST_PAGE_TABLE.lock()) = Some(create_new_page_table(
-        *INTERRUPTION_STACK.lock().as_ref().unwrap(),
-        0,
-    ));
-    trace!("Success.");
-
-    trace!("Trying to switch to new page table and switch stack.");
-    // No variables should be on the stack after here
-    unsafe {
-        // No lock guard, so we have to do so
-        FIRST_PAGE_TABLE.get_mut().as_ref().unwrap().bind();
-        asm!(
-            "mov rax, {0}",
-            "mov rsp, rax",
-            const KERNEL_STACK_BEGIN + FRAME_SIZE * 2
-        )
-    }
-
-    unsafe {
-        enable_external_irq();
-    }
-    callback()
+pub fn free_initial_pt() {
+    *INITIAL_PAGE_TABLE.lock() = None;
 }

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use super::gdt;
-use core::arch::{asm, naked_asm};
+use core::arch::{asm, global_asm, naked_asm};
 use lazy_static::lazy_static;
 
 use crate::{arch::x86_64::int::send_eoi, trace};
@@ -205,22 +205,68 @@ struct InterruptionStackFrameWithErrorCode {
 
 // We do not use "x86-interrupt" call conventions for my preferences
 
+global_asm!(
+    ".macro swapgs_if_required",
+    "cmp word ptr [rsp + 8], 8",
+    "je 2f",
+    "swapgs",
+    "2:",
+    ".endmacro"
+);
+
+global_asm!(
+    ".macro save_registers",
+    "push rax",
+    "push rbx",
+    "push rcx",
+    "push rdx",
+    "push rsi",
+    "push rdi",
+    "push r8",
+    "push r9",
+    "push r10",
+    "push r11",
+    "push r12",
+    "push r13",
+    "push r14",
+    "push r15",
+    ".endmacro",
+);
+
+global_asm!(
+    ".macro restore_registers",
+    "pop r15",
+    "pop r14",
+    "pop r13",
+    "pop r12",
+    "pop r11",
+    "pop r10",
+    "pop r9",
+    "pop r8",
+    "pop rdi",
+    "pop rsi",
+    "pop rdx",
+    "pop rcx",
+    "pop rbx",
+    "pop rax",
+    ".endmacro",
+);
+
 macro_rules! make_interruption_handler {
     ($id: ident => $inner: ident) => {
         #[naked]
         unsafe extern "C" fn $id() {
             unsafe {
                 naked_asm!(
+                    "swapgs_if_required",
                     "push rdi",
                     "mov rdi, rsp",
-                    "add rdi, 8",
-                    "push rax", "push rbx", "push rcx", "push rdx", "push rbp", "push rsi",
-                    "push r8", "push r9", "push r10", "push r11", "push r12", "push r13", "push r14",
-                    "push r15",
+                    "sub rdi, 8",
+                    "save_registers",
                     "call {0}",
-                    "pop r15", "pop r14", "pop r13", "pop r12", "pop r11", "pop r10", "pop r9", "pop r8",
-                    "pop rsi", "pop rbp", "pop rdx", "pop rcx", "pop rbx", "pop rax",
+                    "restore_registers",
                     "pop rdi",
+                    "swapgs_if_required",
                     "iretq",
                     sym $inner,
                 );
@@ -232,17 +278,16 @@ macro_rules! make_interruption_handler {
         unsafe extern "C" fn $id() {
             unsafe {
                 naked_asm!(
+                    "swapgs_if_required",
                     "push rdi",
                     "mov rdi, rsp",
-                    "add rdi, 8",
-                    "push rax", "push rbx", "push rcx", "push rdx", "push rbp", "push rsi",
-                    "push r8", "push r9", "push r10", "push r11", "push r12", "push r13", "push r14",
-                    "push r15",
+                    "sub rdi, 8",
+                    "save_registers",
                     "call {0}",
-                    "pop r15", "pop r14", "pop r13", "pop r12", "pop r11", "pop r10", "pop r9", "pop r8",
-                    "pop rsi", "pop rbp", "pop rdx", "pop rcx", "pop rbx", "pop rax",
+                    "restore_registers",
                     "pop rdi",
                     "add rsp, 8",
+                    "swapgs_if_required",
                     "iretq",
                     sym $inner,
                 );

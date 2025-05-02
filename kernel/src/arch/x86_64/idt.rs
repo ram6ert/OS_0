@@ -155,6 +155,14 @@ lazy_static! {
             true,
         );
 
+        idt.general_protection = IdtEntry::new(
+            general_protection as u64,
+            gdt::KERNEL_CODE_DESCRIPTOR,
+            GateType::TrapGate,
+            PrivilegeLevel::Ring0,
+            true,
+        );
+
         idt.user_define[0] = IdtEntry::new(
             timer as u64,
             gdt::KERNEL_CODE_DESCRIPTOR,
@@ -345,7 +353,7 @@ make_interruption_handler!(double_fault => double_fault_inner with_error_code);
 
 extern "sysv64" fn double_fault_inner(frame: &InterruptionStackFrameWithErrorCode) -> () {
     trace!("Double fault at {:x}!", frame.rip);
-    panic!("Double fault");
+    panic!("Double fault at {:x}!", frame.rip);
 }
 
 make_interruption_handler!(page_fault => page_fault_inner with_error_code);
@@ -356,7 +364,24 @@ extern "sysv64" fn page_fault_inner(frame: &InterruptionStackFrameWithErrorCode)
         frame.rip,
         read_cr2()
     );
-    panic!();
+    panic!(
+        "Page fault at {:x} for accessing {:x}!",
+        frame.rip,
+        read_cr2()
+    );
+}
+
+make_interruption_handler!(general_protection => general_proection_inner with_error_code);
+
+extern "sysv64" fn general_proection_inner(frame: &InterruptionStackFrameWithErrorCode) -> () {
+    trace!(
+        "#GP at {:x}:{:x} with code {:x}.",
+        frame.cs, frame.rip, frame.error_code
+    );
+    panic!(
+        "#GP at {:x}:{:x} with code {:x}.",
+        frame.cs, frame.rip, frame.error_code
+    );
 }
 
 make_interruption_handler!(timer => timer_inner);

@@ -38,7 +38,7 @@ pub unsafe fn init_syscall() {
 
 global_asm!(
     ".macro swapgs_if_needed",
-    "cmp word ptr [rsp + 8], 8",
+    "cmp qword ptr [rsp + 8], 8",
     "je 3f",
     "swapgs",
     "3:",

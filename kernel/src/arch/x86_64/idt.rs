@@ -4,6 +4,9 @@ use super::gdt;
 use core::arch::{asm, global_asm, naked_asm};
 use lazy_static::lazy_static;
 
+#[allow(unused_imports)]
+use crate::mm::definitions::KERNEL_ISTACK_END;
+
 use crate::{arch::x86_64::int::send_eoi, trace};
 
 #[repr(u8)]
@@ -258,16 +261,23 @@ macro_rules! make_interruption_handler {
         unsafe extern "C" fn $id() {
             unsafe {
                 naked_asm!(
+                    "cli",
                     "swapgs_if_required",
+                    "push rbp",
+                    "mov rbp, rsp",
+                    "mov rsp, {0}",
                     "push rdi",
                     "mov rdi, rsp",
                     "sub rdi, 8",
                     "save_registers",
-                    "call {0}",
+                    "call {1}",
                     "restore_registers",
                     "pop rdi",
+                    "mov rsp, rbp",
+                    "pop rbp",
                     "swapgs_if_required",
                     "iretq",
+                    const KERNEL_ISTACK_END,
                     sym $inner,
                 );
             }
@@ -277,18 +287,25 @@ macro_rules! make_interruption_handler {
         #[naked]
         unsafe extern "C" fn $id() {
             unsafe {
-                naked_asm!(
+            naked_asm!(
+                    "cli",
                     "swapgs_if_required",
+                    "push rbp",
+                    "mov rbp, rsp",
+                    "mov rsp, {0}",
                     "push rdi",
                     "mov rdi, rsp",
                     "sub rdi, 8",
                     "save_registers",
-                    "call {0}",
+                    "call {1}",
                     "restore_registers",
                     "pop rdi",
+                    "mov rsp, rbp",
+                    "pop rbp",
                     "add rsp, 8",
                     "swapgs_if_required",
                     "iretq",
+                    const KERNEL_ISTACK_END,
                     sym $inner,
                 );
             }

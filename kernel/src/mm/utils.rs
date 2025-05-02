@@ -87,7 +87,21 @@ fn create_new_page_table(stack: Frame) -> X86PageTable {
     );
 
     // 3. int stack, 4K
-    let stack_region_begin = VirtAddress::new(KERNEL_STACK_BEGIN + FRAME_SIZE).get_page();
+    let istack_region_begin = VirtAddress::new(KERNEL_ISTACK_END - 1).get_page();
+    result.map(
+        &MappingRegion {
+            phys_begin: istack,
+            virt_begin: istack_region_begin,
+            num: 1,
+        },
+        PageFlags::Writable,
+    );
+
+    // 4. current stack, 4K
+    let stack_region_begin = VirtAddress::new(KERNEL_STACK_BEGIN)
+        .get_page()
+        .offset(2 * current_stack_idx as isize + 1);
+    let stack = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
     result.map(
         &MappingRegion {
             phys_begin: stack,
@@ -102,6 +116,7 @@ fn create_new_page_table(stack: Frame) -> X86PageTable {
 
 static FIRST_PAGE_TABLE: SpinLock<Option<X86PageTable>> = SpinLock::new(None);
 static INTERRUPTION_STACK: SpinLock<Option<Frame>> = SpinLock::new(None);
+static IDLE_STACK: SpinLock<Option<Frame>> = SpinLock::new(None);
 
 pub fn switch_to_new_page_table<F>(callback: F) -> !
 where
@@ -114,6 +129,7 @@ where
     trace!("Trying to create initial page table...");
     (*FIRST_PAGE_TABLE.lock()) = Some(create_new_page_table(
         *INTERRUPTION_STACK.lock().as_ref().unwrap(),
+        0,
     ));
     trace!("Success.");
 
@@ -129,5 +145,8 @@ where
         )
     }
 
+    unsafe {
+        enable_external_irq();
+    }
     callback()
 }

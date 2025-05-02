@@ -21,6 +21,13 @@ pub unsafe fn enable_irq() {
     }
 }
 
+pub unsafe fn enable_external_irq() {
+    unsafe {
+        out8(PIC_MASTER_DATA_PORT, 0xfa);
+        out8(PIC_SLAVE_DATA_PORT, 0xff);
+    }
+}
+
 pub unsafe fn init_8259a() {
     // disable irq
     unsafe {
@@ -43,7 +50,7 @@ pub unsafe fn init_8259a() {
 
     // re-enable irq
     unsafe {
-        out8(PIC_MASTER_DATA_PORT, 0xfa);
+        out8(PIC_MASTER_DATA_PORT, 0xff);
         out8(PIC_SLAVE_DATA_PORT, 0xff);
         enable_irq();
     }

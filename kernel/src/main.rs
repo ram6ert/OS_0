@@ -6,6 +6,7 @@ mod arch;
 mod lang_items;
 mod mm;
 mod sync;
+mod task;
 
 extern crate alloc;
 

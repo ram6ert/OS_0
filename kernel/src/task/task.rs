@@ -5,6 +5,7 @@ use crate::{
         RegisterStore, disable_irq, enable_external_irq, enable_irq,
         mm::page_table::PageTable as ArchPageTable,
         x86_64::{
+            syscall,
             task::{jump_to, set_structure_base},
             utils::bind_pt_and_switch_stack,
         },
@@ -116,7 +117,7 @@ impl Task {
 #[naked]
 unsafe extern "C" fn idle() -> ! {
     unsafe {
-        naked_asm!("2:", "jmp 2b");
+        naked_asm!("syscall", "2:", "jmp 2b");
     }
 }
 

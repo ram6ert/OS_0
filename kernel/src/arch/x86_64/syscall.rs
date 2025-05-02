@@ -94,7 +94,7 @@ global_asm!(
     start_syscall
     call {}
     end_syscall
-    sysret
+    sysretq
     "#,
     sym handle_syscall_inner
 );

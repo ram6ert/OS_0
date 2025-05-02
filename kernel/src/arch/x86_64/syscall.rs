@@ -4,6 +4,7 @@ use crate::trace;
 
 use super::{
     KERNEL_CODE_DESCRIPTOR, USER_CODE_DESCRIPTOR,
+    gdt::BEFORE_USER_DESCRIPTOR,
     utils::{rdmsr, wrmsr},
 };
 
@@ -23,7 +24,7 @@ pub unsafe fn init_syscall() {
         // STAR -> selector
         wrmsr(
             0xC0000081,
-            ((KERNEL_CODE_DESCRIPTOR as u64) << 32) | ((USER_CODE_DESCRIPTOR as u64) << 48),
+            ((KERNEL_CODE_DESCRIPTOR as u64) << 32) | ((BEFORE_USER_DESCRIPTOR as u64) << 48),
         );
 
         // LSTAR -> handler

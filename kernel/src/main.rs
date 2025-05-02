@@ -1,6 +1,12 @@
 #![no_main]
 #![no_std]
-#![feature(allocator_api, slice_ptr_get, naked_functions, never_type)]
+#![feature(
+    allocator_api,
+    slice_ptr_get,
+    naked_functions,
+    never_type,
+    core_intrinsics
+)]
 
 mod arch;
 mod lang_items;
@@ -10,6 +16,8 @@ mod task;
 
 extern crate alloc;
 
+use arch::enable_external_irq;
+use arch::enable_irq;
 use arch::halt;
 use bootloader_api::BootInfo;
 use bootloader_api::BootloaderConfig;
@@ -22,7 +30,8 @@ use mm::definitions::FrameRegion;
 use mm::definitions::PHYSICAL_MAP_BEGIN;
 use mm::definitions::PhysAddress;
 use mm::frame_allocator::FRAME_ALLOCATOR;
-use mm::utils::switch_to_new_page_table;
+use mm::utils::init_mm;
+use task::task::jump_idle;
 
 static CONFIG: BootloaderConfig = {
     let mut cfg = BootloaderConfig::new_default();
@@ -49,7 +58,9 @@ pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
             ))
             .unwrap();
     }
-    switch_to_new_page_table(kernel_main)
+    init_mm();
+    //switch_to_new_page_table(kernel_main)
+    jump_idle();
 }
 
 fn kernel_main() -> ! {

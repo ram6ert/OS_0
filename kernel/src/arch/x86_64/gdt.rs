@@ -44,12 +44,13 @@ impl TssEntry {
     }
 }
 
-static mut GDT: [GdtEntry; 7] = [
+static mut GDT: [GdtEntry; 8] = [
     GdtEntry::NULL,
     GdtEntry::KERNEL_CODE,
     GdtEntry::KERNEL_DATA,
-    GdtEntry::USER_CODE,
+    GdtEntry::NULL,
     GdtEntry::USER_DATA,
+    GdtEntry::USER_CODE,
     // for tss
     GdtEntry::NULL,
     GdtEntry::NULL,
@@ -60,9 +61,10 @@ static TSS: TssEntry = TssEntry::new(KERNEL_ISTACK_END as u64);
 
 pub const KERNEL_CODE_DESCRIPTOR: u16 = 1 * 0x08;
 pub const KERNEL_DATA_DESCRIPTOR: u16 = 2 * 0x08;
-pub const USER_CODE_DESCRIPTOR: u16 = 3 * 0x08;
+pub const BEFORE_USER_DESCRIPTOR: u16 = 3 * 0x08;
+pub const USER_CODE_DESCRIPTOR: u16 = 5 * 0x08;
 pub const USER_DATA_DESCRIPTOR: u16 = 4 * 0x08;
-pub const TSS_DESCRIPTOR: u16 = 5 * 0x08;
+pub const TSS_DESCRIPTOR: u16 = 6 * 0x08;
 
 #[repr(C, packed)]
 struct Gdtr {
@@ -74,9 +76,9 @@ pub unsafe fn load_gdt() {
     let tss_base = &TSS as *const TssEntry as u64;
     let tss_limit = (size_of_val(&TSS) - 1) as u64;
     unsafe {
-        GDT[5] =
+        GDT[6] =
             GdtEntry((tss_limit & 0xffff) | ((tss_base & 0xffffff) << 16) | 0x0000890000000000u64);
-        GDT[6] = GdtEntry((tss_base >> 32) as u64);
+        GDT[7] = GdtEntry((tss_base >> 32) as u64);
     }
 
     #[allow(static_mut_refs)]

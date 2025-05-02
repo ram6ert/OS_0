@@ -1,5 +1,8 @@
 use crate::{
-    arch::x86_64::mm::page_table::PageTable as X86PageTable,
+    arch::{
+        enable_irq,
+        {enable_external_irq, mm::page_table::PageTable as ArchPageTable},
+    },
     mm::{
         definitions::{FRAME_SIZE, FrameAllocator},
         frame_allocator::FRAME_ALLOCATOR,
@@ -10,9 +13,9 @@ use crate::{
 use core::arch::asm;
 
 use super::definitions::{
-    BSS_SIZE, BSS_START, DATA_SIZE, DATA_START, Frame, KERNEL_STACK_BEGIN, MappingRegion,
-    PHYSICAL_MAP_BEGIN, PageFlags, PageTable, PhysAddress, RODATA_SIZE, RODATA_START, TEXT_SIZE,
-    TEXT_START, VirtAddress,
+    BSS_SIZE, BSS_START, DATA_SIZE, DATA_START, Frame, KERNEL_ISTACK_END, KERNEL_STACK_BEGIN,
+    MappingRegion, PHYSICAL_MAP_BEGIN, PageFlags, PageTable, PhysAddress, RODATA_SIZE,
+    RODATA_START, TEXT_SIZE, TEXT_START, VirtAddress,
 };
 
 pub fn calculate_phys_addr_from_pptr<T>(addr: *mut T) -> PhysAddress {
@@ -48,10 +51,10 @@ fn get_rsp() -> u64 {
     rsp
 }
 
-fn create_new_page_table(stack: Frame) -> X86PageTable {
+fn create_new_page_table(istack: Frame, current_stack_idx: usize) -> ArchPageTable {
     let old_table_frame = get_current_page_table_frame();
-    let old_table = X86PageTable::from(old_table_frame);
-    let mut result = X86PageTable::new();
+    let old_table = ArchPageTable::from(old_table_frame);
+    let mut result = ArchPageTable::new();
 
     // 1. kernel region
     let regions = unsafe {
@@ -114,7 +117,7 @@ fn create_new_page_table(stack: Frame) -> X86PageTable {
     result
 }
 
-static FIRST_PAGE_TABLE: SpinLock<Option<X86PageTable>> = SpinLock::new(None);
+static FIRST_PAGE_TABLE: SpinLock<Option<ArchPageTable>> = SpinLock::new(None);
 static INTERRUPTION_STACK: SpinLock<Option<Frame>> = SpinLock::new(None);
 static IDLE_STACK: SpinLock<Option<Frame>> = SpinLock::new(None);
 

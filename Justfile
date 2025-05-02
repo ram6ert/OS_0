@@ -11,6 +11,6 @@ image-dev: kernel-dev
 qemu: image
     qemu-system-x86_64 -drive format=raw,file=build/bios.img -serial stdio
 qemu-debug: image-dev
-    qemu-system-x86_64 -drive format=raw,file=build/dev/bios.img -d in_asm,int,mmu,page -no-reboot
+    qemu-system-x86_64 -drive format=raw,file=build/dev/bios.img -d in_asm,int -no-reboot
 clean:
     rm -r build/* kernel/target/* image_builder/target/*

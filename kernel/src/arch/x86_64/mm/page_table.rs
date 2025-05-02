@@ -70,11 +70,11 @@ impl TableEntry {
         self
     }
 
-    fn get_executable(&self) -> bool {
+    fn get_nonexecutable(&self) -> bool {
         self.0 & (1u64 << 63) != 0
     }
 
-    fn set_executable(mut self, val: bool) -> Self {
+    fn set_nonexecutable(mut self, val: bool) -> Self {
         if val {
             self.0 |= 1u64 << 63;
         } else {
@@ -228,7 +228,7 @@ impl crate::mm::definitions::PageTable for PageTable {
     }
 
     #[inline(always)]
-    fn bind(&self) {
+    unsafe fn bind(&self) {
         unsafe {
             asm!(
                 "shl rax, 12",
@@ -371,12 +371,18 @@ impl PageTable {
         frame
     }
 
-    fn set_flags(entry: &mut TableEntry, flags: PageFlags, is_leave: bool) {
+    fn set_flags(entry: &mut TableEntry, flags: PageFlags, is_leaf: bool) {
         *entry = entry
             .set_present(true)
-            .set_usermode(flags.contains(PageFlags::Usermode) || !is_leave)
-            .set_writable(flags.contains(PageFlags::Writable) || !is_leave)
-            .set_executable(/*flags.contains(PageFlags::Executable)*/ false);
+            .set_usermode(flags.contains(PageFlags::Usermode) || !is_leaf)
+            .set_writable(flags.contains(PageFlags::Writable) || !is_leaf)
+            .set_nonexecutable(if !is_leaf {
+                false
+            } else if flags.contains(PageFlags::Executable) {
+                false
+            } else {
+                true
+            });
     }
 }
 

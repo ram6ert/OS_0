@@ -1,8 +1,11 @@
 #![allow(dead_code)]
 
 use super::gdt;
-use core::arch::{asm, naked_asm};
+use core::arch::{asm, global_asm, naked_asm};
 use lazy_static::lazy_static;
+
+#[allow(unused_imports)]
+use crate::mm::definitions::KERNEL_ISTACK_END;
 
 use crate::{arch::x86_64::int::send_eoi, trace};
 
@@ -152,6 +155,14 @@ lazy_static! {
             true,
         );
 
+        idt.general_protection = IdtEntry::new(
+            general_protection as u64,
+            gdt::KERNEL_CODE_DESCRIPTOR,
+            GateType::TrapGate,
+            PrivilegeLevel::Ring0,
+            true,
+        );
+
         idt.user_define[0] = IdtEntry::new(
             timer as u64,
             gdt::KERNEL_CODE_DESCRIPTOR,
@@ -205,23 +216,77 @@ struct InterruptionStackFrameWithErrorCode {
 
 // We do not use "x86-interrupt" call conventions for my preferences
 
+global_asm!(
+    ".macro save_registers",
+    "push rax",
+    "push rbx",
+    "push rcx",
+    "push rdx",
+    "push rsi",
+    "push rdi",
+    "push r8",
+    "push r9",
+    "push r10",
+    "push r11",
+    "push r12",
+    "push r13",
+    "push r14",
+    "push r15",
+    ".endmacro",
+);
+
+global_asm!(
+    ".macro restore_registers",
+    "pop r15",
+    "pop r14",
+    "pop r13",
+    "pop r12",
+    "pop r11",
+    "pop r10",
+    "pop r9",
+    "pop r8",
+    "pop rdi",
+    "pop rsi",
+    "pop rdx",
+    "pop rcx",
+    "pop rbx",
+    "pop rax",
+    ".endmacro",
+);
+
 macro_rules! make_interruption_handler {
     ($id: ident => $inner: ident) => {
         #[naked]
         unsafe extern "C" fn $id() {
             unsafe {
                 naked_asm!(
+                    "cli",
+                    "cmp word ptr [rsp + 8], 8",
+                    "je 2f",
+                    // user, do not switch
                     "push rdi",
                     "mov rdi, rsp",
                     "add rdi, 8",
-                    "push rax", "push rbx", "push rcx", "push rdx", "push rbp", "push rsi",
-                    "push r8", "push r9", "push r10", "push r11", "push r12", "push r13", "push r14",
-                    "push r15",
-                    "call {0}",
-                    "pop r15", "pop r14", "pop r13", "pop r12", "pop r11", "pop r10", "pop r9", "pop r8",
-                    "pop rsi", "pop rbp", "pop rdx", "pop rcx", "pop rbx", "pop rax",
+                    "save_registers",
+                    "call {1}",
+                    "restore_registers",
                     "pop rdi",
+                    "jmp 3f",
+                    // kernel, switch stack
+                    "2:",
+                    "push rbp",
+                    "mov rbp, rsp",
+                    "mov rsp, {0}",
+                    "save_registers",
+                    "mov rdi, rbp",
+                    "add rdi, 8",
+                    "call {1}",
+                    "restore_registers",
+                    "mov rsp, rbp",
+                    "pop rbp",
+                    "3:",
                     "iretq",
+                    const KERNEL_ISTACK_END,
                     sym $inner,
                 );
             }
@@ -232,18 +297,34 @@ macro_rules! make_interruption_handler {
         unsafe extern "C" fn $id() {
             unsafe {
                 naked_asm!(
+                    "cli",
+                    "cmp word ptr [rsp + 8], 8",
+                    "je 2f",
+                    // user, do not switch
                     "push rdi",
                     "mov rdi, rsp",
                     "add rdi, 8",
-                    "push rax", "push rbx", "push rcx", "push rdx", "push rbp", "push rsi",
-                    "push r8", "push r9", "push r10", "push r11", "push r12", "push r13", "push r14",
-                    "push r15",
-                    "call {0}",
-                    "pop r15", "pop r14", "pop r13", "pop r12", "pop r11", "pop r10", "pop r9", "pop r8",
-                    "pop rsi", "pop rbp", "pop rdx", "pop rcx", "pop rbx", "pop rax",
+                    "save_registers",
+                    "call {1}",
+                    "restore_registers",
                     "pop rdi",
+                    "jmp 3f",
+                    // kernel, switch stack
+                    "2:",
+                    "push rbp",
+                    "mov rbp, rsp",
+                    "mov rsp, {0}",
+                    "save_registers",
+                    "mov rdi, rbp",
+                    "add rdi, 8",
+                    "call {1}",
+                    "restore_registers",
+                    "mov rsp, rbp",
+                    "pop rbp",
+                    "3:",
                     "add rsp, 8",
                     "iretq",
+                    const KERNEL_ISTACK_END,
                     sym $inner,
                 );
             }
@@ -272,7 +353,7 @@ make_interruption_handler!(double_fault => double_fault_inner with_error_code);
 
 extern "sysv64" fn double_fault_inner(frame: &InterruptionStackFrameWithErrorCode) -> () {
     trace!("Double fault at {:x}!", frame.rip);
-    panic!("Double fault");
+    panic!("Double fault at {:x}!", frame.rip);
 }
 
 make_interruption_handler!(page_fault => page_fault_inner with_error_code);
@@ -283,7 +364,24 @@ extern "sysv64" fn page_fault_inner(frame: &InterruptionStackFrameWithErrorCode)
         frame.rip,
         read_cr2()
     );
-    panic!();
+    panic!(
+        "Page fault at {:x} for accessing {:x}!",
+        frame.rip,
+        read_cr2()
+    );
+}
+
+make_interruption_handler!(general_protection => general_proection_inner with_error_code);
+
+extern "sysv64" fn general_proection_inner(frame: &InterruptionStackFrameWithErrorCode) -> () {
+    trace!(
+        "#GP at {:x}:{:x} with code {:x}.",
+        frame.cs, frame.rip, frame.error_code
+    );
+    panic!(
+        "#GP at {:x}:{:x} with code {:x}.",
+        frame.cs, frame.rip, frame.error_code
+    );
 }
 
 make_interruption_handler!(timer => timer_inner);

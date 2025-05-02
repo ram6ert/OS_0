@@ -6,10 +6,10 @@ mod arch;
 mod lang_items;
 mod mm;
 mod sync;
+mod task;
 
 extern crate alloc;
 
-use arch::halt;
 use bootloader_api::BootInfo;
 use bootloader_api::BootloaderConfig;
 use bootloader_api::config::Mapping;
@@ -21,7 +21,8 @@ use mm::definitions::FrameRegion;
 use mm::definitions::PHYSICAL_MAP_BEGIN;
 use mm::definitions::PhysAddress;
 use mm::frame_allocator::FRAME_ALLOCATOR;
-use mm::utils::switch_to_new_page_table;
+use mm::utils::init_mm;
+use task::task::jump_idle;
 
 static CONFIG: BootloaderConfig = {
     let mut cfg = BootloaderConfig::new_default();
@@ -48,12 +49,6 @@ pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
             ))
             .unwrap();
     }
-    switch_to_new_page_table(kernel_main)
-}
-
-fn kernel_main() -> ! {
-    trace!("Kernel main.");
-    loop {
-        halt();
-    }
+    init_mm();
+    jump_idle();
 }

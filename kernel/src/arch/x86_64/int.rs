@@ -1,6 +1,6 @@
 use core::arch::asm;
 
-use super::io::out8;
+use super::{io::out8, utils::wrmsr};
 
 const PIC_MASTER_CMD_PORT: u16 = 0x20;
 const PIC_SLAVE_CMD_PORT: u16 = 0xA0;
@@ -25,6 +25,18 @@ pub unsafe fn enable_external_irq() {
     unsafe {
         out8(PIC_MASTER_DATA_PORT, 0xfa);
         out8(PIC_SLAVE_DATA_PORT, 0xff);
+    }
+}
+
+pub unsafe fn init_gsbase() {
+    unsafe {
+        wrmsr(0xC0000101, 0);
+    }
+}
+
+pub unsafe fn set_gsbase(base: u64) {
+    unsafe {
+        wrmsr(0xC0000102, base);
     }
 }
 

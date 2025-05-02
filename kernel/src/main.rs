@@ -1,12 +1,6 @@
 #![no_main]
 #![no_std]
-#![feature(
-    allocator_api,
-    slice_ptr_get,
-    naked_functions,
-    never_type,
-    core_intrinsics
-)]
+#![feature(allocator_api, slice_ptr_get, naked_functions, never_type)]
 
 mod arch;
 mod lang_items;
@@ -16,9 +10,6 @@ mod task;
 
 extern crate alloc;
 
-use arch::enable_external_irq;
-use arch::enable_irq;
-use arch::halt;
 use bootloader_api::BootInfo;
 use bootloader_api::BootloaderConfig;
 use bootloader_api::config::Mapping;
@@ -59,13 +50,5 @@ pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
             .unwrap();
     }
     init_mm();
-    //switch_to_new_page_table(kernel_main)
     jump_idle();
-}
-
-fn kernel_main() -> ! {
-    trace!("Kernel main.");
-    loop {
-        halt();
-    }
 }

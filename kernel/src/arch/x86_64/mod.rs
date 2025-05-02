@@ -18,4 +18,6 @@ pub use int::{disable_irq, enable_external_irq, enable_irq};
 
 pub use idt::load_idt;
 
+pub use syscall::syscall;
+
 pub use task::RegisterStore;

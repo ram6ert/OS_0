@@ -21,6 +21,7 @@ pub unsafe fn enable_irq() {
     }
 }
 
+#[inline(always)]
 pub unsafe fn enable_external_irq() {
     unsafe {
         out8(PIC_MASTER_DATA_PORT, 0xfa);

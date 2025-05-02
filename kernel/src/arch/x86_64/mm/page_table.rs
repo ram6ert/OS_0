@@ -376,9 +376,9 @@ impl PageTable {
             .set_present(true)
             .set_usermode(flags.contains(PageFlags::Usermode) || !is_leaf)
             .set_writable(flags.contains(PageFlags::Writable) || !is_leaf)
-            .set_nonexecutable(if flags.contains(PageFlags::Executable) {
+            .set_nonexecutable(if !is_leaf {
                 false
-            } else if is_leaf {
+            } else if flags.contains(PageFlags::Executable) {
                 false
             } else {
                 true

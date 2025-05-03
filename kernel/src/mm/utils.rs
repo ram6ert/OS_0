@@ -5,15 +5,16 @@ use crate::{
         mm::page_table::PageTable as ArchPageTable, x86_64::utils::get_current_page_table_frame,
     },
     mm::{
-        definitions::{FRAME_SIZE, FrameAllocator},
+        definitions::{FRAME_SIZE, FrameAllocator, KERNEL_HEAP_SIZE},
         frame_allocator::FRAME_ALLOCATOR,
     },
     sync::SpinLock,
 };
 
 use super::definitions::{
-    BSS_SIZE, BSS_START, DATA_SIZE, DATA_START, Frame, MappingRegion, PHYSICAL_MAP_BEGIN,
-    PageTable, PhysAddress, RODATA_SIZE, RODATA_START, TEXT_SIZE, TEXT_START, VirtAddress,
+    BSS_SIZE, BSS_START, DATA_SIZE, DATA_START, Frame, FrameRegion, MappingRegion,
+    PHYSICAL_MAP_BEGIN, PageTable, PhysAddress, RODATA_SIZE, RODATA_START, TEXT_SIZE, TEXT_START,
+    VirtAddress,
 };
 
 pub fn calculate_phys_addr_from_pptr<T>(addr: *mut T) -> PhysAddress {
@@ -45,6 +46,13 @@ pub struct KernelMappingInfo {
 static INITIAL_PAGE_TABLE: SpinLock<Option<ArchPageTable>> = SpinLock::new(None);
 
 pub static KERNEL_MAPPING_INFO: SpinLock<Option<KernelMappingInfo>> = SpinLock::new(None);
+
+lazy_static! {
+    pub static ref KERNEL_HEAP: FrameRegion = FRAME_ALLOCATOR
+        .lock()
+        .alloc(KERNEL_HEAP_SIZE / FRAME_SIZE)
+        .unwrap();
+}
 
 pub fn init_mm() {
     let mut ipt = INITIAL_PAGE_TABLE.lock();

@@ -1,4 +1,4 @@
-use core::arch::asm;
+use core::{arch::asm, mem::zeroed};
 
 use crate::arch::x86_64::{USER_CODE_DESCRIPTOR, gdt::USER_DATA_DESCRIPTOR};
 
@@ -24,17 +24,32 @@ pub struct RegisterStore {
     rbp: u64,
     rsp: u64,
     kernel_rsp: u64,
+    ip: u64,
 }
 
-impl RegisterStore {
-    pub const fn new(kernel_stack: u64) -> Self {
-        let mut result: RegisterStore = unsafe { core::mem::zeroed() };
-        result.kernel_rsp = kernel_stack;
+impl crate::task::RegisterStore for RegisterStore {
+    fn pc(&self) -> usize {
+        self.ip as usize
+    }
+
+    fn sp(&self) -> usize {
+        self.rsp as usize
+    }
+
+    fn ksp(&self) -> usize {
+        self.kernel_rsp as usize
+    }
+
+    fn new(pc: usize, sp: usize, ksp: usize) -> Self {
+        let mut result = unsafe { core::mem::zeroed::<Self>() };
+        result.ip = pc as u64;
+        result.rsp = sp as u64;
+        result.kernel_rsp = ksp as u64;
         result
     }
 }
 
-pub unsafe fn jump_to(addr: u64) -> ! {
+pub unsafe fn jump_to(addr: usize) -> ! {
     unsafe {
         asm!(
             "mov rax, {0}",

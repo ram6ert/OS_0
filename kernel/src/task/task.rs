@@ -1,10 +1,8 @@
 use core::arch::naked_asm;
 
-use alloc::boxed::Box;
-
 use crate::{
     arch::{
-        RegisterStore, disable_irq, enable_external_irq, enable_irq,
+        RegisterStore as ArchRegisterStore, disable_irq, enable_external_irq, enable_irq,
         mm::page_table::PageTable as ArchPageTable,
         x86_64::{
             syscall,
@@ -25,31 +23,40 @@ use crate::{
     sync::SpinLock,
     trace,
 };
+
+pub trait RegisterStore {
+    fn pc(&self) -> usize;
+    fn sp(&self) -> usize;
+    fn ksp(&self) -> usize;
+    fn new(pc: usize, sp: usize, ksp: usize) -> Self;
+}
+
 #[repr(C)]
 pub struct Task {
-    registers: RegisterStore,
-    pc: usize,
+    registers: ArchRegisterStore,
     page_table: ArchPageTable,
 }
 
 impl Task {
     pub fn new(stack_idx: usize, entry: usize) -> Self {
         Self {
-            registers: RegisterStore::new(
-                (KERNEL_STACK_BEGIN + (2 * stack_idx + 1) * FRAME_SIZE) as u64,
+            registers: ArchRegisterStore::new(
+                entry,
+                0,
+                KERNEL_STACK_BEGIN + (2 * stack_idx + 1) * FRAME_SIZE,
             ),
             page_table: Self::create_page_table(stack_idx),
-            pc: entry,
         }
     }
 
     fn from_pt(stack_idx: usize, entry: usize, pt: ArchPageTable) -> Self {
         Self {
             registers: RegisterStore::new(
-                (KERNEL_STACK_BEGIN + 2 * (stack_idx + 1) * FRAME_SIZE) as u64,
+                entry,
+                0,
+                KERNEL_STACK_BEGIN + 2 * (stack_idx + 1) * FRAME_SIZE,
             ),
             page_table: pt,
-            pc: entry,
         }
     }
 
@@ -105,7 +112,7 @@ impl Task {
             PageFlags::Writable,
         );
 
-        // 5. kernel heap, 1M
+        // 5. kernel heap, 16M
         let kernel_heap_region_begin = VirtAddress::new(KERNEL_HEAP_BEGIN).get_page();
         result.map(
             &MappingRegion {
@@ -122,7 +129,7 @@ impl Task {
         unsafe {
             set_structure_base(self as *const Task as u64, true);
             self.page_table.bind();
-            jump_to(self.pc as u64);
+            jump_to(self.registers.pc());
         }
     }
 }
@@ -142,10 +149,8 @@ pub fn jump_idle() -> ! {
         *IDLE_PT.get_mut() = Some(Task::create_page_table(0));
         bind_pt_and_switch_stack(
             IDLE_PT.get_mut().as_ref().unwrap(),
-            (KERNEL_STACK_BEGIN + FRAME_SIZE * 2) as u64,
+            KERNEL_STACK_BEGIN + FRAME_SIZE * 2,
             || {
-                enable_irq();
-                enable_external_irq();
                 free_initial_pt();
                 *IDLE.get_mut() = Some(Task::from_pt(
                     0,

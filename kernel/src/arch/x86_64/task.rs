@@ -1,6 +1,6 @@
 use core::arch::asm;
 
-use crate::arch::x86_64::gdt::USER_DATA_DESCRIPTOR;
+use crate::arch::x86_64::{USER_CODE_DESCRIPTOR, gdt::USER_DATA_DESCRIPTOR};
 
 use super::int::set_gsbase;
 
@@ -37,21 +37,55 @@ impl RegisterStore {
 pub unsafe fn jump_to(addr: u64) -> ! {
     unsafe {
         asm!(
+            "mov rax, {0}",
+            // ss
+            "push rax",
+            // rsp
+            "mov rax, 0",
+            "push rax",
+            // rflags
+            "mov rax, 0x200",
+            "push rax",
+            // cs
+            "mov rax, {1}",
+            "push rax",
+            // rip
+            "push {2}",
+            "",
+            "mov gs:0x08, rbx",
+            "mov gs:0x10, rcx",
+            "mov gs:0x18, rdx",
+            "mov gs:0x20, rsi",
+            "mov gs:0x28, rdi",
+            "mov gs:0x30, r8",
+            "mov gs:0x38, r9",
+            "mov gs:0x40, r10",
+            "mov gs:0x48, r11",
+            "mov gs:0x50, r12",
+            "mov gs:0x58, r13",
+            "mov gs:0x60, r14",
+            "mov gs:0x68, r15",
+            "mov gs:0x70, rbp",
+            "mov gs:0x78, rsp",
+            "mov ax, {0}",
             "mov ds, ax",
             "mov es, ax",
-            "mov fs, ax",
-            "mov gs, ax",
-            "mov r11, 0x200",
-            "sysretq",
-            in("ax") USER_DATA_DESCRIPTOR,
-            in("rcx") addr,
+            "swapgs",
+            "iretq",
+            const USER_DATA_DESCRIPTOR + 3,
+            const USER_CODE_DESCRIPTOR + 3,
+            in(reg) addr,
+            out("rax") _,
         );
         unreachable!()
     }
 }
 
-pub unsafe fn set_structure_base(addr: u64) {
+pub unsafe fn set_structure_base(addr: u64, switch: bool) {
     unsafe {
         set_gsbase(addr);
+        if switch {
+            asm!("swapgs");
+        }
     }
 }

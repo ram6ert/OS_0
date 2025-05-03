@@ -37,17 +37,8 @@ pub unsafe fn init_syscall() {
 }
 
 global_asm!(
-    ".macro swapgs_if_needed",
-    "cmp qword ptr [rsp + 8], 8",
-    "je 3f",
-    "swapgs",
-    "3:",
-    ".endm"
-);
-
-global_asm!(
     ".macro start_syscall",
-    "swapgs_if_needed",
+    "swapgs",
     "mov gs:0x00, rax",
     "mov gs:0x08, rbx",
     "mov gs:0x10, rcx",
@@ -64,7 +55,7 @@ global_asm!(
     "mov gs:0x68, r15",
     "mov gs:0x70, rbp",
     "mov gs:0x78, rsp",
-    "mov gs:0x80, rsp",
+    "mov rsp, gs:0x80",
     ".endmacro",
     ".macro end_syscall",
     //"mov rax, gs:0x00",
@@ -83,7 +74,7 @@ global_asm!(
     "mov r15, gs:0x68",
     "mov rbp, gs:0x70",
     "mov rsp, gs:0x78",
-    "swapgs_if_needed",
+    "swapgs",
     ".endmacro",
 );
 

@@ -43,7 +43,7 @@ impl Task {
     fn from_pt(stack_idx: usize, entry: usize, pt: ArchPageTable) -> Self {
         Self {
             registers: RegisterStore::new(
-                (KERNEL_STACK_BEGIN + (2 * stack_idx + 1) * FRAME_SIZE) as u64,
+                (KERNEL_STACK_BEGIN + 2 * (stack_idx + 1) * FRAME_SIZE) as u64,
             ),
             page_table: pt,
             pc: entry,
@@ -107,7 +107,7 @@ impl Task {
 
     pub unsafe fn jump_to(&self) -> ! {
         unsafe {
-            set_structure_base(self as *const Task as u64);
+            set_structure_base(self as *const Task as u64, true);
             self.page_table.bind();
             jump_to(self.pc as u64);
         }

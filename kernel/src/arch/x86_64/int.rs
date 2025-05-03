@@ -38,6 +38,7 @@ pub unsafe fn init_gsbase() {
 pub unsafe fn set_gsbase(base: u64) {
     unsafe {
         wrmsr(0xC0000102, base);
+        asm!("swapgs");
     }
 }
 

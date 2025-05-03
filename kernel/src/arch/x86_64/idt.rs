@@ -263,7 +263,8 @@ macro_rules! make_interruption_handler {
                     "cli",
                     "cmp word ptr [rsp + 8], 8",
                     "je 2f",
-                    // user, do not switch
+                    // user, do not switch stack, switch gs
+                    "swapgs",
                     "push rdi",
                     "mov rdi, rsp",
                     "add rdi, 8",
@@ -271,6 +272,7 @@ macro_rules! make_interruption_handler {
                     "call {1}",
                     "restore_registers",
                     "pop rdi",
+                    "swapgs",
                     "jmp 3f",
                     // kernel, switch stack
                     "2:",
@@ -300,7 +302,8 @@ macro_rules! make_interruption_handler {
                     "cli",
                     "cmp word ptr [rsp + 8], 8",
                     "je 2f",
-                    // user, do not switch
+                    // user, do not switch stack, switch gs
+                    "swapgs",
                     "push rdi",
                     "mov rdi, rsp",
                     "add rdi, 8",
@@ -308,6 +311,7 @@ macro_rules! make_interruption_handler {
                     "call {1}",
                     "restore_registers",
                     "pop rdi",
+                    "swapgs",
                     "jmp 3f",
                     // kernel, switch stack
                     "2:",

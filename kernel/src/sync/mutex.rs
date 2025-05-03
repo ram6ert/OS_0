@@ -2,7 +2,7 @@ use core::{
     cell::UnsafeCell,
     marker::PhantomData,
     ops::{Deref, DerefMut},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 use crate::arch::{disable_irq, enable_irq};
@@ -28,6 +28,19 @@ pub struct Mutex<T, L: Listener> {
 pub struct Spin {}
 
 pub struct SpinNoIrq {}
+
+pub struct RwLock<T> {
+    data: UnsafeCell<T>,
+    lock: AtomicU64,
+}
+
+pub struct ReadLockGuard<'a, T> {
+    lock: &'a RwLock<T>,
+}
+
+pub struct WriteLockGuard<'a, T> {
+    lock: &'a RwLock<T>,
+}
 
 // MutexGuard
 impl<'a, T, L: Listener> Deref for MutexGuard<'a, T, L> {
@@ -107,3 +120,73 @@ impl Listener for SpinNoIrq {
         }
     }
 }
+
+impl<T> RwLock<T> {
+    pub const fn new(data: T) -> Self {
+        Self {
+            data: UnsafeCell::new(data),
+            lock: AtomicU64::new(0),
+        }
+    }
+
+    pub fn exclusive_access(&self) -> WriteLockGuard<T> {
+        while self
+            .lock
+            .compare_exchange(0, u64::MAX, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            core::hint::spin_loop();
+        }
+        WriteLockGuard { lock: &self }
+    }
+
+    pub fn shared_access(&self) -> ReadLockGuard<T> {
+        let mut origin = self.lock.load(Ordering::Acquire);
+        while origin == u64::MAX
+            || self
+                .lock
+                .compare_exchange(origin, origin + 1, Ordering::AcqRel, Ordering::Acquire)
+                .is_err()
+        {
+            core::hint::spin_loop();
+            origin = self.lock.load(Ordering::Acquire);
+        }
+        ReadLockGuard { lock: &self }
+    }
+}
+
+impl<'a, T> Deref for WriteLockGuard<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.lock.data.get() }
+    }
+}
+
+impl<'a, T> DerefMut for WriteLockGuard<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.lock.data.get() }
+    }
+}
+
+impl<'a, T> Drop for WriteLockGuard<'a, T> {
+    fn drop(&mut self) {
+        self.lock.lock.store(0, Ordering::Release);
+    }
+}
+
+impl<'a, T> Deref for ReadLockGuard<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.lock.data.get() }
+    }
+}
+
+impl<'a, T> Drop for ReadLockGuard<'a, T> {
+    fn drop(&mut self) {
+        self.lock.lock.fetch_sub(1, Ordering::Release);
+    }
+}
+
+unsafe impl<T> Sync for RwLock<T> {}

@@ -1,5 +1,7 @@
 use core::arch::naked_asm;
 
+use alloc::boxed::Box;
+
 use crate::{
     arch::{
         RegisterStore, disable_irq, enable_external_irq, enable_irq,
@@ -13,11 +15,12 @@ use crate::{
     mm::{
         INTERRUPTION_STACK,
         definitions::{
-            FRAME_SIZE, Frame, FrameAllocator, KERNEL_ISTACK_END, KERNEL_STACK_BEGIN,
-            MappingRegion, PHYSICAL_MAP_BEGIN, PageFlags, PageTable, VirtAddress,
+            FRAME_SIZE, Frame, FrameAllocator, KERNEL_HEAP_BEGIN, KERNEL_HEAP_SIZE,
+            KERNEL_ISTACK_END, KERNEL_STACK_BEGIN, MappingRegion, PHYSICAL_MAP_BEGIN, PageFlags,
+            PageTable, VirtAddress,
         },
         frame_allocator::FRAME_ALLOCATOR,
-        utils::{KERNEL_MAPPING_INFO, free_initial_pt},
+        utils::{KERNEL_HEAP, KERNEL_MAPPING_INFO, free_initial_pt},
     },
     sync::SpinLock,
     trace,
@@ -88,7 +91,7 @@ impl Task {
             PageFlags::Writable,
         );
 
-        // 4. current stack, 4K
+        // 4. task kernel stack, 4K
         let stack_region_begin = VirtAddress::new(KERNEL_STACK_BEGIN)
             .get_page()
             .offset(2 * stack_idx as isize + 1);
@@ -102,6 +105,16 @@ impl Task {
             PageFlags::Writable,
         );
 
+        // 5. kernel heap, 1M
+        let kernel_heap_region_begin = VirtAddress::new(KERNEL_HEAP_BEGIN).get_page();
+        result.map(
+            &MappingRegion {
+                phys_begin: KERNEL_HEAP.start(),
+                virt_begin: kernel_heap_region_begin,
+                num: KERNEL_HEAP_SIZE / FRAME_SIZE,
+            },
+            PageFlags::Writable,
+        );
         result
     }
 
@@ -133,6 +146,7 @@ pub fn jump_idle() -> ! {
             || {
                 enable_irq();
                 enable_external_irq();
+                free_initial_pt();
                 *IDLE.get_mut() = Some(Task::from_pt(
                     0,
                     idle as usize,

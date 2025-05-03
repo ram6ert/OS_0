@@ -2,10 +2,9 @@ use core::arch::naked_asm;
 
 use crate::{
     arch::{
-        RegisterStore as ArchRegisterStore, disable_irq, enable_external_irq, enable_irq,
+        RegisterStore as ArchRegisterStore, enable_external_irq, enable_irq,
         mm::page_table::PageTable as ArchPageTable,
         x86_64::{
-            syscall,
             task::{jump_to, set_structure_base},
             utils::bind_pt_and_switch_stack,
         },
@@ -129,6 +128,8 @@ impl Task {
         unsafe {
             set_structure_base(self as *const Task as u64, true);
             self.page_table.bind();
+            enable_irq();
+            enable_external_irq();
             jump_to(self.registers.pc());
         }
     }

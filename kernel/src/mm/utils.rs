@@ -5,7 +5,7 @@ use crate::{
         mm::page_table::PageTable as ArchPageTable, x86_64::utils::get_current_page_table_frame,
     },
     mm::{
-        definitions::{FRAME_SIZE, FrameAllocator, KERNEL_HEAP_SIZE},
+        definitions::{FRAME_SIZE, FrameAllocator, KERNEL_HEAP_BEGIN, KERNEL_HEAP_SIZE, PageFlags},
         frame_allocator::FRAME_ALLOCATOR,
     },
     sync::SpinLock,
@@ -102,6 +102,19 @@ pub fn init_mm() {
                 num: BSS_SIZE as usize / FRAME_SIZE,
             },
         });
+    }
+
+    ipt.as_mut().unwrap().map(
+        &MappingRegion {
+            phys_begin: KERNEL_HEAP.start(),
+            virt_begin: VirtAddress::new(KERNEL_HEAP_BEGIN).get_page(),
+            num: KERNEL_HEAP_SIZE / FRAME_SIZE,
+        },
+        PageFlags::Writable,
+    );
+
+    unsafe {
+        ipt.as_ref().unwrap().bind();
     }
 }
 

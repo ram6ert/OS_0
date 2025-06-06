@@ -1,6 +1,9 @@
 use core::{arch::asm, mem::zeroed};
 
-use crate::arch::x86_64::{USER_CODE_DESCRIPTOR, gdt::USER_DATA_DESCRIPTOR};
+use crate::arch::x86_64::{
+    KERNEL_CODE_DESCRIPTOR, USER_CODE_DESCRIPTOR,
+    gdt::{KERNEL_DATA_DESCRIPTOR, USER_DATA_DESCRIPTOR},
+};
 
 use super::int::set_gsbase;
 
@@ -23,33 +26,69 @@ pub struct RegisterStore {
     r15: u64,
     rbp: u64,
     rsp: u64,
+    ksp: u64,
+    rflags: u64,
+    rip: u64,
+    cs: u64,
+    ds: u64,
     kernel_rsp: u64,
-    ip: u64,
 }
 
 impl crate::task::RegisterStore for RegisterStore {
-    fn pc(&self) -> usize {
-        self.ip as usize
-    }
-
-    fn sp(&self) -> usize {
-        self.rsp as usize
-    }
-
-    fn ksp(&self) -> usize {
-        self.kernel_rsp as usize
+    extern "sysv64" fn switch_to(&self) -> ! {
+        unsafe {
+            asm!(
+                // stack
+                "push {0}",
+                "push {1}",
+                // rflags
+                "push {2}",
+                // cs, ip
+                "push {3}",
+                "push {4}",
+                // other registers
+                "mov rbx, [rax + 0x08]",
+                "mov rcx, [rax + 0x10]",
+                "mov rdx, [rax + 0x18]",
+                "mov rsi, [rax + 0x20]",
+                "mov rdi, [rax + 0x28]",
+                "mov r8, [rax + 0x30]",
+                "mov r9, [rax + 0x38]",
+                "mov r10, [rax + 0x40]",
+                "mov r11, [rax + 0x48]",
+                "mov r12, [rax + 0x50]",
+                "mov r13, [rax + 0x58]",
+                "mov r14, [rax + 0x60]",
+                "mov r15, [rax + 0x68]",
+                "mov rbp, [rax + 0x70]",
+                "mov rax, [rax + 0x00]",
+                "iretq",
+                in(reg) self.ds,
+                in(reg) self.rsp,
+                in(reg) self.rflags,
+                in(reg) self.cs,
+                in(reg) self.rip,
+                in("rax") self,
+            );
+            unreachable!()
+        }
     }
 
     fn new(pc: usize, sp: usize, ksp: usize) -> Self {
         let mut result = unsafe { core::mem::zeroed::<Self>() };
-        result.ip = pc as u64;
+        result.rip = pc as u64;
         result.rsp = sp as u64;
         result.kernel_rsp = ksp as u64;
+
+        result.cs = (USER_CODE_DESCRIPTOR + 3) as u64;
+        result.ds = (USER_DATA_DESCRIPTOR + 3) as u64;
+        result.rflags = 0x200;
         result
     }
 }
 
-pub unsafe fn jump_to(addr: usize) -> ! {
+#[inline(always)]
+pub unsafe fn jump_to_user(addr: usize) -> ! {
     unsafe {
         asm!(
             "mov rax, {0}",

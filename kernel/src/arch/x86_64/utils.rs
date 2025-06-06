@@ -72,15 +72,3 @@ pub unsafe fn get_current_page_table_frame() -> Frame {
     }
     Frame::new((cr3 >> 12) & ((1 << 36) - 1))
 }
-
-#[inline(always)]
-pub unsafe fn bind_pt_and_switch_stack(pt: &X86PageTable, stack: usize, callback: fn() -> !) -> ! {
-    unsafe {
-        pt.bind();
-        asm!(
-            "mov rsp, {}",
-            in(reg) stack,
-        );
-    }
-    callback();
-}

@@ -7,7 +7,11 @@ use lazy_static::lazy_static;
 #[allow(unused_imports)]
 use crate::mm::definitions::KERNEL_ISTACK_END;
 
-use crate::{arch::x86_64::int::send_eoi, trace};
+use crate::{
+    arch::x86_64::int::send_eoi,
+    task::{RegisterStore, TASK_MANAGER},
+    trace,
+};
 
 #[repr(u8)]
 enum GateType {
@@ -390,8 +394,11 @@ extern "sysv64" fn general_proection_inner(frame: &InterruptionStackFrameWithErr
 
 make_interruption_handler!(timer => timer_inner);
 
-extern "sysv64" fn timer_inner(_frame: &InterruptionStackFrame) -> () {
+extern "sysv64" fn timer_inner(_frame: &mut InterruptionStackFrame) -> () {
     unsafe {
         send_eoi(0);
+    }
+    unsafe {
+        TASK_MANAGER.lock().schedule_next_task();
     }
 }

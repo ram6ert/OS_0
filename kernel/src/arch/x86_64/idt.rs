@@ -10,7 +10,7 @@ use crate::mm::definitions::KERNEL_ISTACK_END;
 
 use crate::{
     arch::x86_64::int::send_eoi,
-    task::{RegisterStore, TASK_MANAGER, task::Task},
+    task::{RegisterStore, TASK_MANAGER, schedule_next_task, task::Task},
     trace,
 };
 
@@ -408,10 +408,5 @@ extern "sysv64" fn timer_inner(frame: &mut InterruptionStackFrame) -> () {
             (*ptr).registers.update_rflags(frame.rflags);
         }
     }
-    let task = TASK_MANAGER.lock().rotate_tasks();
-    if let Some(task) = task {
-        unsafe {
-            task.jump_to();
-        }
-    }
+    schedule_next_task()
 }

@@ -87,3 +87,12 @@ pub fn init_first_process_and_jump_to() -> ! {
     free_initial_page_table();
     unsafe { task.unwrap().jump_to() }
 }
+
+pub fn schedule_next_task() -> ! {
+    let task = TASK_MANAGER.lock().rotate_tasks();
+    if let Some(task) = task {
+        unsafe { task.jump_to() }
+    } else {
+        panic!("No task to run.");
+    }
+}

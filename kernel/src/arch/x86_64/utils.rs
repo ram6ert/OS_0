@@ -1,6 +1,9 @@
 use core::arch::asm;
 
-use crate::mm::definitions::{Frame, PageTable};
+use crate::{
+    arch::{disable_irq, enable_external_irq},
+    mm::definitions::{Frame, PageTable},
+};
 
 use super::{
     int::{init_8259a, init_gsbase},
@@ -20,10 +23,12 @@ pub fn halt() {
 pub fn init() {
     logging::init();
     unsafe {
+        disable_irq();
         load_gdt();
         load_idt();
         init_8259a();
         init_timer();
+        enable_external_irq();
         init_nonexecutable_paging();
         init_syscall();
         init_gsbase();
@@ -44,6 +49,7 @@ pub unsafe fn rdmsr(addr: u32) -> u64 {
     ((high as u64) << 32) | (low as u64)
 }
 
+#[inline(always)]
 pub unsafe fn wrmsr(addr: u32, data: u64) {
     unsafe {
         asm!(

@@ -264,7 +264,6 @@ macro_rules! make_interruption_handler {
         unsafe extern "C" fn $id() {
             unsafe {
                 naked_asm!(
-                    "cli",
                     "cmp word ptr [rsp + 8], 8",
                     "je 2f",
                     // user, do not switch stack, switch gs
@@ -303,7 +302,6 @@ macro_rules! make_interruption_handler {
         unsafe extern "C" fn $id() {
             unsafe {
                 naked_asm!(
-                    "cli",
                     "cmp word ptr [rsp + 8], 8",
                     "je 2f",
                     // user, do not switch stack, switch gs

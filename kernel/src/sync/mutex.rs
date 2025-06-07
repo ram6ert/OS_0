@@ -110,13 +110,13 @@ impl Listener for Spin {
 impl Listener for SpinNoIrq {
     fn before_lock() {
         unsafe {
-            //disable_irq();
+            disable_irq();
         }
     }
 
     fn after_unlock() {
         unsafe {
-            //enable_irq();
+            enable_irq();
         }
     }
 }

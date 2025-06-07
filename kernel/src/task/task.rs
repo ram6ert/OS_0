@@ -1,65 +1,59 @@
-use core::arch::naked_asm;
-
-use alloc::boxed::Box;
-
 use crate::{
     arch::{
-        RegisterStore, disable_irq, enable_external_irq, enable_irq,
-        mm::page_table::PageTable as ArchPageTable,
-        x86_64::{
-            syscall,
-            task::{jump_to, set_structure_base},
-            utils::bind_pt_and_switch_stack,
-        },
+        RegisterStore as ArchRegisterStore, mm::page_table::PageTable as ArchPageTable,
+        x86_64::task::set_structure_base,
     },
     mm::{
         INTERRUPTION_STACK,
         definitions::{
-            FRAME_SIZE, Frame, FrameAllocator, KERNEL_HEAP_BEGIN, KERNEL_HEAP_SIZE,
-            KERNEL_ISTACK_END, KERNEL_STACK_BEGIN, MappingRegion, PHYSICAL_MAP_BEGIN, PageFlags,
-            PageTable, VirtAddress,
+            APP_STACK_BEGIN, APP_STACK_END, FRAME_SIZE, Frame, FrameAllocator, KERNEL_HEAP_BEGIN,
+            KERNEL_HEAP_SIZE, KERNEL_ISTACK_END, KERNEL_STACK_BEGIN, MappingRegion,
+            PHYSICAL_MAP_BEGIN, PageFlags, PageTable, VirtAddress,
         },
         frame_allocator::FRAME_ALLOCATOR,
-        utils::{KERNEL_HEAP, KERNEL_MAPPING_INFO, free_initial_pt},
+        utils::{KERNEL_HEAP, KERNEL_MAPPING_INFO},
     },
-    sync::SpinLock,
-    trace,
+    task::elf::{Readable, load_elf},
 };
+
+pub trait RegisterStore {
+    extern "sysv64" fn switch_to(&self) -> !;
+    fn ksp(&self) -> usize;
+    fn new(pc: usize, sp: usize, ksp: usize) -> Self;
+
+    fn update(&mut self, pc: usize, sp: usize);
+}
+
 #[repr(C)]
 pub struct Task {
-    registers: RegisterStore,
-    pc: usize,
+    pub registers: ArchRegisterStore,
     page_table: ArchPageTable,
+    id: usize,
 }
 
 impl Task {
-    pub fn new(stack_idx: usize, entry: usize) -> Self {
+    pub fn new<R: Readable>(id: usize, elf_file: R) -> Self {
+        let mut page_table = Self::create_page_table(id);
+        let entry = load_elf(elf_file, &mut page_table);
+        let registers = ArchRegisterStore::new(
+            entry as usize,
+            APP_STACK_END,
+            KERNEL_STACK_BEGIN + (2 * id + 2) * FRAME_SIZE,
+        );
         Self {
-            registers: RegisterStore::new(
-                (KERNEL_STACK_BEGIN + (2 * stack_idx + 1) * FRAME_SIZE) as u64,
-            ),
-            page_table: Self::create_page_table(stack_idx),
-            pc: entry,
+            registers,
+            page_table,
+            id,
         }
     }
 
-    fn from_pt(stack_idx: usize, entry: usize, pt: ArchPageTable) -> Self {
-        Self {
-            registers: RegisterStore::new(
-                (KERNEL_STACK_BEGIN + 2 * (stack_idx + 1) * FRAME_SIZE) as u64,
-            ),
-            page_table: pt,
-            pc: entry,
-        }
-    }
-
-    fn create_page_table(stack_idx: usize) -> ArchPageTable {
+    fn create_page_table(id: usize) -> ArchPageTable {
         let mut result = ArchPageTable::new();
 
         // 1. kernel regions
         let kmi = KERNEL_MAPPING_INFO.lock().as_ref().unwrap().clone();
         let regions = [
-            (kmi.text, PageFlags::Executable | PageFlags::Usermode),
+            (kmi.text, PageFlags::Executable),
             (kmi.rodata, PageFlags::empty()),
             (kmi.data, PageFlags::Writable),
             (kmi.bss, PageFlags::Writable),
@@ -94,18 +88,18 @@ impl Task {
         // 4. task kernel stack, 4K
         let stack_region_begin = VirtAddress::new(KERNEL_STACK_BEGIN)
             .get_page()
-            .offset(2 * stack_idx as isize + 1);
-        let stack = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
+            .offset(2 * id as isize + 1);
+        let kstack = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
         result.map(
             &MappingRegion {
-                phys_begin: stack,
+                phys_begin: kstack,
                 virt_begin: stack_region_begin,
                 num: 1,
             },
             PageFlags::Writable,
         );
 
-        // 5. kernel heap, 1M
+        // 5. kernel heap, 16M
         let kernel_heap_region_begin = VirtAddress::new(KERNEL_HEAP_BEGIN).get_page();
         result.map(
             &MappingRegion {
@@ -115,45 +109,30 @@ impl Task {
             },
             PageFlags::Writable,
         );
+
+        // 6. app stack
+        let stack = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
+        result.map(
+            &MappingRegion {
+                phys_begin: stack,
+                virt_begin: VirtAddress::new(APP_STACK_BEGIN).get_page(),
+                num: 1,
+            },
+            PageFlags::Usermode | PageFlags::Writable,
+        );
         result
     }
 
+    #[inline(always)]
     pub unsafe fn jump_to(&self) -> ! {
         unsafe {
             set_structure_base(self as *const Task as u64, true);
-            self.page_table.bind();
-            jump_to(self.pc as u64);
+            self.page_table.bind_and_switch_stack(self.registers.ksp());
+            self.registers.switch_to();
         }
     }
-}
 
-#[naked]
-unsafe extern "C" fn idle() -> ! {
-    unsafe {
-        naked_asm!("syscall", "2:", "jmp 2b");
-    }
-}
-
-static IDLE: SpinLock<Option<Task>> = SpinLock::new(None);
-static IDLE_PT: SpinLock<Option<ArchPageTable>> = SpinLock::new(None);
-
-pub fn jump_idle() -> ! {
-    unsafe {
-        *IDLE_PT.get_mut() = Some(Task::create_page_table(0));
-        bind_pt_and_switch_stack(
-            IDLE_PT.get_mut().as_ref().unwrap(),
-            (KERNEL_STACK_BEGIN + FRAME_SIZE * 2) as u64,
-            || {
-                enable_irq();
-                enable_external_irq();
-                free_initial_pt();
-                *IDLE.get_mut() = Some(Task::from_pt(
-                    0,
-                    idle as usize,
-                    IDLE_PT.get_mut().take().unwrap(),
-                ));
-                IDLE.get_mut().as_ref().unwrap().jump_to();
-            },
-        );
+    pub fn id(&self) -> usize {
+        self.id
     }
 }

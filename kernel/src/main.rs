@@ -1,6 +1,12 @@
 #![no_main]
 #![no_std]
-#![feature(allocator_api, slice_ptr_get, naked_functions, never_type)]
+#![feature(
+    allocator_api,
+    slice_ptr_get,
+    naked_functions,
+    never_type,
+    linked_list_cursors
+)]
 
 mod arch;
 mod lang_items;
@@ -22,7 +28,8 @@ use mm::definitions::PHYSICAL_MAP_BEGIN;
 use mm::definitions::PhysAddress;
 use mm::frame_allocator::FRAME_ALLOCATOR;
 use mm::utils::init_mm;
-use task::task::jump_idle;
+
+use crate::task::init_first_process_and_jump_to;
 
 static CONFIG: BootloaderConfig = {
     let mut cfg = BootloaderConfig::new_default();
@@ -31,6 +38,8 @@ static CONFIG: BootloaderConfig = {
 };
 
 entry_point!(kernel_boot, config = &CONFIG);
+
+pub static INIT_PROGRAM: &[u8] = include_bytes!("../artifacts/user");
 
 pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
     arch::init();
@@ -50,5 +59,5 @@ pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
             .unwrap();
     }
     init_mm();
-    jump_idle();
+    init_first_process_and_jump_to()
 }

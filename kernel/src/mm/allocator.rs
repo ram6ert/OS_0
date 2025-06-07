@@ -65,13 +65,15 @@ impl DirectBlockAllocator {
                     };
                     Self::insert_hole(self, &hole).unwrap();
                     result = Some(cand);
+                    self.ceiling -= size + offset;
                 }
             } else {
                 result = Some(cand);
+                self.ceiling -= size;
             }
         }
 
-        result.or(Self::try_alloc_from_hole(self, layout))
+        result
     }
 
     fn try_alloc_from_hole(&mut self, layout: Layout) -> Option<usize> {
@@ -93,7 +95,7 @@ impl DirectBlockAllocator {
                 if cand % align != 0 {
                     let offset = align - cand % align;
                     if hole.size >= size + offset {
-                        result = Some(cand);
+                        result = Some(cand + offset);
 
                         if size + offset == hole.size {
                             before = Some(MemoryHole {
@@ -166,6 +168,7 @@ impl DirectBlockAllocator {
                 num += 1;
             } else if i < hole_count - 1 && holes[i].base + holes[i].size == holes[i + 1].base {
                 holes[i + 1].base = holes[i].base;
+                holes[i + 1].size += holes[i].size;
                 holes[i].size = 0;
                 num += 1;
             }

@@ -1,6 +1,10 @@
-kernel:
+user:
+    cd user && cargo build --release
+    mkdir -p kernel/artifacts
+    cp ./user/target/x86_64-os0-user/release/user kernel/artifacts/user
+kernel: user
     cd kernel && cargo build --release
-kernel-dev:
+kernel-dev: user
     cd kernel && cargo build
 image: kernel
     mkdir -p build
@@ -13,4 +17,4 @@ qemu: image
 qemu-debug: image-dev
     qemu-system-x86_64 -drive format=raw,file=build/dev/bios.img -d in_asm,int -no-reboot
 clean:
-    rm -r build/* kernel/target/* image_builder/target/*
+    rm -r build/* kernel/target/* image_builder/target/* user/target/*

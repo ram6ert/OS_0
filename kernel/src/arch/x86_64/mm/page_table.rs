@@ -237,6 +237,19 @@ impl crate::mm::definitions::PageTable for PageTable {
         };
     }
 
+    #[inline(always)]
+    unsafe fn bind_and_switch_stack(&self, sp: usize) {
+        unsafe {
+            asm!(
+                "shl rax, 12",
+                "mov cr3, rax",
+                "mov rsp, rcx",
+                in("rax") self.pml4t.get_index(),
+                in("rcx") sp
+            )
+        }
+    }
+
     fn resolve(&self, page: Page) -> Option<Frame> {
         let pml4e_idx = Self::get_page_index_4(page);
         let pdpe_idx = Self::get_page_index_3(page);

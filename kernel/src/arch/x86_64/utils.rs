@@ -1,13 +1,13 @@
 use core::arch::asm;
 
-use crate::mm::definitions::{Frame, PageTable};
+use crate::{
+    arch::{disable_irq, enable_external_irq},
+    mm::definitions::{Frame, PageTable},
+};
 
 use super::{
-    int::{init_8259a, init_gsbase},
-    load_gdt, load_idt, logging,
-    mm::page_table::PageTable as X86PageTable,
-    syscall::init_syscall,
-    timer::init_timer,
+    int::init_8259a, load_gdt, load_idt, logging, mm::page_table::PageTable as X86PageTable,
+    syscall::init_syscall, timer::init_timer,
 };
 
 #[inline(always)]
@@ -20,13 +20,14 @@ pub fn halt() {
 pub fn init() {
     logging::init();
     unsafe {
+        disable_irq();
         load_gdt();
         load_idt();
         init_8259a();
         init_timer();
+        enable_external_irq();
         init_nonexecutable_paging();
         init_syscall();
-        init_gsbase();
     }
 }
 
@@ -44,6 +45,7 @@ pub unsafe fn rdmsr(addr: u32) -> u64 {
     ((high as u64) << 32) | (low as u64)
 }
 
+#[inline(always)]
 pub unsafe fn wrmsr(addr: u32, data: u64) {
     unsafe {
         asm!(
@@ -71,16 +73,4 @@ pub unsafe fn get_current_page_table_frame() -> Frame {
         );
     }
     Frame::new((cr3 >> 12) & ((1 << 36) - 1))
-}
-
-#[inline(never)]
-pub unsafe fn bind_pt_and_switch_stack(pt: &X86PageTable, stack: u64, callback: fn() -> !) -> ! {
-    unsafe {
-        pt.bind();
-        asm!(
-            "mov rsp, {}",
-            in(reg) stack,
-        );
-    }
-    callback();
 }

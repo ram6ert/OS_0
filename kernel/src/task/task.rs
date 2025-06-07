@@ -9,17 +9,20 @@ use crate::{
     mm::{
         INTERRUPTION_STACK,
         definitions::{
-            FRAME_SIZE, Frame, FrameAllocator, KERNEL_HEAP_BEGIN, KERNEL_HEAP_SIZE,
-            KERNEL_ISTACK_END, KERNEL_STACK_BEGIN, MappingRegion, PHYSICAL_MAP_BEGIN, PageFlags,
-            PageTable, VirtAddress,
+            APP_STACK_BEGIN, APP_STACK_END, FRAME_SIZE, Frame, FrameAllocator, KERNEL_HEAP_BEGIN,
+            KERNEL_HEAP_SIZE, KERNEL_ISTACK_END, KERNEL_STACK_BEGIN, MappingRegion,
+            PHYSICAL_MAP_BEGIN, PageFlags, PageTable, VirtAddress,
         },
         frame_allocator::FRAME_ALLOCATOR,
         utils::{KERNEL_HEAP, KERNEL_MAPPING_INFO},
     },
+    task::elf::{MemoryReader, Readable, load_elf},
+    trace,
 };
 
 pub trait RegisterStore {
     extern "sysv64" fn switch_to(&self) -> !;
+    fn ksp(&self) -> usize;
     fn new(pc: usize, sp: usize, ksp: usize) -> Self;
 }
 
@@ -31,14 +34,17 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new(id: usize, entry: usize) -> Self {
+    pub fn new<R: Readable>(id: usize, elf_file: R) -> Self {
+        let mut page_table = Self::create_page_table(id);
+        let entry = load_elf(elf_file, &mut page_table);
+        let registers = ArchRegisterStore::new(
+            entry as usize,
+            APP_STACK_END,
+            KERNEL_STACK_BEGIN + (2 * id + 2) * FRAME_SIZE,
+        );
         Self {
-            registers: ArchRegisterStore::new(
-                entry,
-                0,
-                KERNEL_STACK_BEGIN + (2 * id + 1) * FRAME_SIZE,
-            ),
-            page_table: Self::create_page_table(id),
+            registers,
+            page_table,
             id,
         }
     }
@@ -49,7 +55,7 @@ impl Task {
         // 1. kernel regions
         let kmi = KERNEL_MAPPING_INFO.lock().as_ref().unwrap().clone();
         let regions = [
-            (kmi.text, PageFlags::Executable | PageFlags::Usermode),
+            (kmi.text, PageFlags::Executable),
             (kmi.rodata, PageFlags::empty()),
             (kmi.data, PageFlags::Writable),
             (kmi.bss, PageFlags::Writable),
@@ -85,10 +91,10 @@ impl Task {
         let stack_region_begin = VirtAddress::new(KERNEL_STACK_BEGIN)
             .get_page()
             .offset(2 * id as isize + 1);
-        let stack = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
+        let kstack = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
         result.map(
             &MappingRegion {
-                phys_begin: stack,
+                phys_begin: kstack,
                 virt_begin: stack_region_begin,
                 num: 1,
             },
@@ -105,6 +111,17 @@ impl Task {
             },
             PageFlags::Writable,
         );
+
+        // 6. app stack
+        let stack = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
+        result.map(
+            &MappingRegion {
+                phys_begin: stack,
+                virt_begin: VirtAddress::new(APP_STACK_BEGIN).get_page(),
+                num: 1,
+            },
+            PageFlags::Usermode | PageFlags::Writable,
+        );
         result
     }
 
@@ -112,19 +129,12 @@ impl Task {
     pub unsafe fn jump_to(&self) -> ! {
         unsafe {
             set_structure_base(self as *const Task as u64, true);
-            self.page_table.bind();
+            self.page_table.bind_and_switch_stack(self.registers.ksp());
             self.registers.switch_to();
         }
     }
 
     pub fn id(&self) -> usize {
         self.id
-    }
-}
-
-#[naked]
-unsafe extern "C" fn idle() -> ! {
-    unsafe {
-        naked_asm!("syscall", "2:", "jmp 2b");
     }
 }

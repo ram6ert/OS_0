@@ -8,7 +8,8 @@ use crate::arch::x86_64::{
 use super::int::set_gsbase;
 
 // Sysv64: Functions preserve the registers rbx, rsp, rbp, r12, r13, r14, and r15; while rax, rdi, rsi, rdx, rcx, r8, r9, r10, r11 are scratch registers.
-#[repr(C, packed)]
+#[repr(C)]
+#[derive(Debug)]
 pub struct RegisterStore {
     rax: u64,
     rbx: u64,
@@ -26,15 +27,15 @@ pub struct RegisterStore {
     r15: u64,
     rbp: u64,
     rsp: u64,
-    ksp: u64,
+    kernel_rsp: u64,
     rflags: u64,
     rip: u64,
     cs: u64,
     ds: u64,
-    kernel_rsp: u64,
 }
 
 impl crate::task::RegisterStore for RegisterStore {
+    #[inline(always)]
     extern "sysv64" fn switch_to(&self) -> ! {
         unsafe {
             asm!(
@@ -72,6 +73,10 @@ impl crate::task::RegisterStore for RegisterStore {
             );
             unreachable!()
         }
+    }
+
+    fn ksp(&self) -> usize {
+        self.kernel_rsp as usize
     }
 
     fn new(pc: usize, sp: usize, ksp: usize) -> Self {
@@ -135,6 +140,7 @@ pub unsafe fn jump_to_user(addr: usize) -> ! {
     }
 }
 
+#[inline(always)]
 pub unsafe fn set_structure_base(addr: u64, switch: bool) {
     unsafe {
         set_gsbase(addr);

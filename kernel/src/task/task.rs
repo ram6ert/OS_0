@@ -126,7 +126,7 @@ impl Task {
     #[inline(always)]
     pub unsafe fn jump_to(&self) -> ! {
         unsafe {
-            set_structure_base(self as *const Task as u64, true);
+            set_structure_base(self as *const Task as u64, false);
             self.page_table.bind_and_switch_stack(self.registers.ksp());
             self.registers.switch_to();
         }

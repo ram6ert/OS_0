@@ -112,13 +112,16 @@ impl RegisterStore {
 }
 
 #[inline(always)]
-pub unsafe fn set_structure_base(addr: u64, switch: bool) {
-    unsafe {
-        asm!("swapgs");
-        set_gsbase(addr);
-        asm!("swapgs");
-        if switch {
+pub unsafe fn set_structure_base(addr: u64, switch_to_kernel: bool) {
+    if switch_to_kernel {
+        unsafe {
             asm!("swapgs");
+            set_gsbase(addr);
+            asm!("swapgs");
+        }
+    } else {
+        unsafe {
+            set_gsbase(addr);
         }
     }
 }

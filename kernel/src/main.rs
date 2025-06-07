@@ -29,8 +29,7 @@ use mm::definitions::PhysAddress;
 use mm::frame_allocator::FRAME_ALLOCATOR;
 use mm::utils::init_mm;
 
-use crate::arch::halt;
-use crate::task::TASK_MANAGER;
+use crate::task::init_first_process_and_jump_to;
 
 static CONFIG: BootloaderConfig = {
     let mut cfg = BootloaderConfig::new_default();
@@ -40,11 +39,7 @@ static CONFIG: BootloaderConfig = {
 
 entry_point!(kernel_boot, config = &CONFIG);
 
-fn loopa() -> ! {
-    loop {
-        halt();
-    }
-}
+pub static INIT_PROGRAM: &[u8] = include_bytes!("../artifacts/user");
 
 pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
     arch::init();
@@ -64,8 +59,5 @@ pub fn kernel_boot(boot_info: &'static mut BootInfo) -> ! {
             .unwrap();
     }
     init_mm();
-    TASK_MANAGER.lock().add_task(loopa as usize);
-    unsafe {
-        TASK_MANAGER.lock().schedule_next_task();
-    }
+    init_first_process_and_jump_to()
 }

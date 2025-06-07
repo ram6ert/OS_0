@@ -1,8 +1,12 @@
 #![allow(dead_code)]
+
 use alloc::{collections::LinkedList, vec::Vec};
 
 use crate::{
+    INIT_PROGRAM,
+    arch::{enable_external_irq, enable_irq},
     sync::{RwLock, SpinLock},
+    task::elf::{MemoryReader, Readable},
     trace,
 };
 
@@ -26,9 +30,9 @@ impl TaskManager {
         }
     }
 
-    pub fn add_task(&self, entry: usize) {
+    pub fn add_task<R: Readable>(&self, elf_file: R) {
         let id = self.ids.lock().alloc();
-        let task = Task::new(id, entry);
+        let task = Task::new(id, elf_file);
         self.tasks.exclusive_access().push_back(task);
     }
 
@@ -42,7 +46,6 @@ impl TaskManager {
         let task_option = tasks.pop_back();
         if let Some(task) = task_option {
             tasks.push_front(task);
-            trace!("After");
             unsafe { tasks.front().unwrap().jump_to() }
         } else {
             panic!("No more task to schedule.")
@@ -74,3 +77,11 @@ impl IdentifierGenerator {
 }
 
 pub static TASK_MANAGER: SpinLock<TaskManager> = SpinLock::new(TaskManager::new());
+
+fn load_elf_program() {}
+
+pub fn init_first_process_and_jump_to() -> ! {
+    let lock = TASK_MANAGER.lock();
+    lock.add_task(MemoryReader::new(INIT_PROGRAM.as_ptr(), INIT_PROGRAM.len()));
+    unsafe { lock.schedule_next_task() }
+}

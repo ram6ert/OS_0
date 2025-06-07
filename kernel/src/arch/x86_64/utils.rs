@@ -10,13 +10,6 @@ use super::{
     syscall::init_syscall, timer::init_timer,
 };
 
-#[inline(always)]
-pub fn halt() {
-    unsafe {
-        asm!("hlt");
-    }
-}
-
 pub fn init() {
     logging::init();
     unsafe {

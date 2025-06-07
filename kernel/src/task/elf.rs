@@ -1,19 +1,14 @@
-use core::mem::MaybeUninit;
-
-use alloc::borrow::ToOwned;
 use bitflags::bitflags;
 
 use crate::{
     arch::mm::page_table::PageTable as ArchPageTable,
     mm::{
         definitions::{
-            FRAME_SIZE, FrameAllocator, MappingRegion, PageFlags, PageTable, PhysAddress,
-            VirtAddress,
+            FRAME_SIZE, FrameAllocator, MappingRegion, PageFlags, PageTable, VirtAddress,
         },
         frame_allocator::FRAME_ALLOCATOR,
         utils::borrow_from_phys_addr_mut,
     },
-    trace,
 };
 
 #[repr(C)]

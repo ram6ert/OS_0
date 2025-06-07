@@ -8,13 +8,6 @@ use super::{
     utils::{rdmsr, wrmsr},
 };
 
-#[inline(always)]
-pub fn syscall() {
-    unsafe {
-        asm!("syscall");
-    }
-}
-
 unsafe extern "C" {
     fn handle_syscall();
 }

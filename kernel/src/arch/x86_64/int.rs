@@ -29,13 +29,6 @@ pub unsafe fn enable_external_irq() {
     }
 }
 
-pub unsafe fn init_gsbase() {
-    unsafe {
-        wrmsr(0xC0000101, 0);
-        asm!("swapgs");
-    }
-}
-
 #[inline(always)]
 pub unsafe fn set_gsbase(base: u64) {
     unsafe {

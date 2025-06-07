@@ -118,6 +118,6 @@ pub fn init_mm() {
     }
 }
 
-pub fn free_initial_pt() {
+pub fn free_initial_page_table() {
     *INITIAL_PAGE_TABLE.lock() = None;
 }

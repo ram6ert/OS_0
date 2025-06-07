@@ -4,6 +4,7 @@ use alloc::{collections::LinkedList, sync::Arc, vec::Vec};
 
 use crate::{
     INIT_PROGRAM,
+    mm::utils::free_initial_page_table,
     sync::{RwLock, SpinLock},
     task::elf::{MemoryReader, Readable},
 };
@@ -83,5 +84,6 @@ pub fn init_first_process_and_jump_to() -> ! {
         lock.add_task(MemoryReader::new(INIT_PROGRAM.as_ptr(), INIT_PROGRAM.len()));
         lock.current_task()
     };
+    free_initial_page_table();
     unsafe { task.unwrap().jump_to() }
 }

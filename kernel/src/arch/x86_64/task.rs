@@ -143,7 +143,9 @@ pub unsafe fn jump_to_user(addr: usize) -> ! {
 #[inline(always)]
 pub unsafe fn set_structure_base(addr: u64, switch: bool) {
     unsafe {
+        asm!("swapgs");
         set_gsbase(addr);
+        asm!("swapgs");
         if switch {
             asm!("swapgs");
         }

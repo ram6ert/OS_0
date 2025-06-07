@@ -1,10 +1,7 @@
-use core::arch::naked_asm;
-
 use crate::{
     arch::{
-        RegisterStore as ArchRegisterStore, enable_external_irq, enable_irq,
-        mm::page_table::PageTable as ArchPageTable,
-        x86_64::task::{jump_to_user, set_structure_base},
+        RegisterStore as ArchRegisterStore, mm::page_table::PageTable as ArchPageTable,
+        x86_64::task::set_structure_base,
     },
     mm::{
         INTERRUPTION_STACK,
@@ -16,8 +13,7 @@ use crate::{
         frame_allocator::FRAME_ALLOCATOR,
         utils::{KERNEL_HEAP, KERNEL_MAPPING_INFO},
     },
-    task::elf::{MemoryReader, Readable, load_elf},
-    trace,
+    task::elf::{Readable, load_elf},
 };
 
 pub trait RegisterStore {

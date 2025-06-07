@@ -2,7 +2,6 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::{cmp::Ordering, usize};
 
 use crate::sync::SpinLock;
-use crate::trace;
 
 use super::definitions::{KERNEL_HEAP_BEGIN, KERNEL_HEAP_SIZE};
 

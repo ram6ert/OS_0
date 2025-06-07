@@ -396,7 +396,10 @@ extern "sysv64" fn timer_inner(_frame: &mut InterruptionStackFrame) -> () {
     unsafe {
         send_eoi(0);
     }
-    unsafe {
-        TASK_MANAGER.lock().schedule_next_task();
+    let task = TASK_MANAGER.lock().rotate_tasks();
+    if let Some(task) = task {
+        unsafe {
+            task.jump_to();
+        }
     }
 }

@@ -4,10 +4,8 @@ use alloc::{collections::LinkedList, sync::Arc, vec::Vec};
 
 use crate::{
     INIT_PROGRAM,
-    arch::{enable_external_irq, enable_irq, x86_64::utils::int3},
     sync::{RwLock, SpinLock},
     task::elf::{MemoryReader, Readable},
-    trace,
 };
 
 use super::task::Task;

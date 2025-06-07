@@ -7,10 +7,16 @@ fn syscall() {
     unsafe { asm!("syscall") }
 }
 
+fn delay() {
+    unsafe { asm!("mov rcx, 0xffffffff", "634:", "loop 634b", out("rcx") _) }
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {
-    syscall();
-    loop {}
+    loop {
+        syscall();
+        delay();
+    }
 }
 
 #[panic_handler]

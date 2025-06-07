@@ -20,6 +20,8 @@ pub trait RegisterStore {
     extern "sysv64" fn switch_to(&self) -> !;
     fn ksp(&self) -> usize;
     fn new(pc: usize, sp: usize, ksp: usize) -> Self;
+
+    fn update(&mut self, pc: usize, sp: usize);
 }
 
 #[repr(C)]

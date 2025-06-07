@@ -201,6 +201,7 @@ pub trait PageTable {
     fn map(&mut self, region: &MappingRegion, flags: PageFlags);
     fn unmap(&mut self, region: &PageRegion);
     unsafe fn bind(&self);
+    unsafe fn bind_and_switch_stack(&self, sp: usize);
     fn resolve(&self, page: Page) -> Option<Frame>;
 }
 

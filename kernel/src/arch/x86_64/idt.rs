@@ -393,9 +393,20 @@ extern "sysv64" fn general_proection_inner(frame: &InterruptionStackFrameWithErr
 
 make_interruption_handler!(timer => timer_inner);
 
-extern "sysv64" fn timer_inner(_frame: &mut InterruptionStackFrame) -> () {
+extern "sysv64" fn timer_inner(frame: &mut InterruptionStackFrame) -> () {
     unsafe {
         send_eoi(0);
+    }
+    let current_task = TASK_MANAGER.lock().current_task();
+    if let Some(current_task) = current_task {
+        // we have to.
+        let ptr = Arc::as_ptr(&current_task) as *mut Task;
+        unsafe {
+            (*ptr)
+                .registers
+                .update(frame.rip as usize, frame.rsp as usize);
+            (*ptr).registers.update_rflags(frame.rflags);
+        }
     }
     let task = TASK_MANAGER.lock().rotate_tasks();
     if let Some(task) = task {

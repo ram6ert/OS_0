@@ -1,8 +1,12 @@
 use core::{arch::asm, mem::zeroed};
 
-use crate::arch::x86_64::{
-    KERNEL_CODE_DESCRIPTOR, USER_CODE_DESCRIPTOR,
-    gdt::{KERNEL_DATA_DESCRIPTOR, USER_DATA_DESCRIPTOR},
+use crate::{
+    arch::x86_64::{
+        KERNEL_CODE_DESCRIPTOR, USER_CODE_DESCRIPTOR,
+        gdt::{KERNEL_DATA_DESCRIPTOR, USER_DATA_DESCRIPTOR},
+    },
+    mm::definitions::KERNEL_REGION_BEGIN,
+    trace,
 };
 
 use super::int::set_gsbase;
@@ -30,13 +34,19 @@ pub struct RegisterStore {
     kernel_rsp: u64,
     rflags: u64,
     rip: u64,
-    cs: u64,
-    ds: u64,
 }
 
 impl crate::task::RegisterStore for RegisterStore {
     #[inline(always)]
     extern "sysv64" fn switch_to(&self) -> ! {
+        let (cs, ds) = if self.rip as usize >= KERNEL_REGION_BEGIN {
+            (KERNEL_CODE_DESCRIPTOR as u64, KERNEL_DATA_DESCRIPTOR as u64)
+        } else {
+            (
+                USER_CODE_DESCRIPTOR as u64 + 3,
+                USER_DATA_DESCRIPTOR as u64 + 3,
+            )
+        };
         unsafe {
             asm!(
                 // stack
@@ -64,10 +74,10 @@ impl crate::task::RegisterStore for RegisterStore {
                 "mov rbp, [rax + 0x70]",
                 "mov rax, [rax + 0x00]",
                 "iretq",
-                in(reg) self.ds,
+                in(reg) ds,
                 in(reg) self.rsp,
                 in(reg) self.rflags,
-                in(reg) self.cs,
+                in(reg) cs,
                 in(reg) self.rip,
                 in("rax") self,
             );
@@ -79,16 +89,25 @@ impl crate::task::RegisterStore for RegisterStore {
         self.kernel_rsp as usize
     }
 
+    fn update(&mut self, pc: usize, sp: usize) {
+        self.rip = pc as u64;
+        self.rsp = sp as u64;
+    }
+
     fn new(pc: usize, sp: usize, ksp: usize) -> Self {
         let mut result = unsafe { core::mem::zeroed::<Self>() };
         result.rip = pc as u64;
         result.rsp = sp as u64;
         result.kernel_rsp = ksp as u64;
 
-        result.cs = (USER_CODE_DESCRIPTOR + 3) as u64;
-        result.ds = (USER_DATA_DESCRIPTOR + 3) as u64;
         result.rflags = 0x200;
         result
+    }
+}
+
+impl RegisterStore {
+    pub fn update_rflags(&mut self, rflags: u64) {
+        self.rflags = rflags;
     }
 }
 

@@ -44,9 +44,7 @@ pub unsafe fn set_gsbase(base: u64) {
 }
 
 pub unsafe fn init_8259a() {
-    // disable irq
     unsafe {
-        disable_irq();
         out8(PIC_MASTER_DATA_PORT, 0xff);
         out8(PIC_SLAVE_DATA_PORT, 0xff);
     }
@@ -63,11 +61,9 @@ pub unsafe fn init_8259a() {
         out8(PIC_SLAVE_DATA_PORT, 0x01);
     }
 
-    // re-enable irq
     unsafe {
         out8(PIC_MASTER_DATA_PORT, 0xff);
         out8(PIC_SLAVE_DATA_PORT, 0xff);
-        enable_irq();
     }
 }
 

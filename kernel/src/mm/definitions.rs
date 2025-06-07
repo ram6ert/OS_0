@@ -11,6 +11,8 @@ pub const KERNEL_HEAP_END: usize = KERNEL_HEAP_BEGIN + KERNEL_HEAP_SIZE;
 pub const KERNEL_STACK_BEGIN: usize = 0xffff_8800_0000_0000;
 pub const KERNEL_STACK_SIZE: usize = 0x0000_0100_0000_0000;
 pub const KERNEL_ISTACK_END: usize = 0xffff_8900_0000_0000;
+pub const APP_STACK_BEGIN: usize = APP_STACK_END - FRAME_SIZE;
+pub const APP_STACK_END: usize = 0x8000_0000_0000;
 
 unsafe extern "C" {
     pub static TEXT_START: u64;

@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-use alloc::{collections::LinkedList, vec::Vec};
+use alloc::{collections::LinkedList, sync::Arc, vec::Vec};
 
 use crate::{
     INIT_PROGRAM,
-    arch::{enable_external_irq, enable_irq},
+    arch::{enable_external_irq, enable_irq, x86_64::utils::int3},
     sync::{RwLock, SpinLock},
     task::elf::{MemoryReader, Readable},
     trace,
@@ -13,7 +13,7 @@ use crate::{
 use super::task::Task;
 
 pub struct TaskManager {
-    tasks: RwLock<LinkedList<Task>>,
+    tasks: RwLock<LinkedList<Arc<Task>>>,
     ids: SpinLock<IdentifierGenerator>,
 }
 
@@ -33,20 +33,21 @@ impl TaskManager {
     pub fn add_task<R: Readable>(&self, elf_file: R) {
         let id = self.ids.lock().alloc();
         let task = Task::new(id, elf_file);
-        self.tasks.exclusive_access().push_back(task);
+        let arc = Arc::new(task);
+        self.tasks.exclusive_access().push_back(arc);
     }
 
-    pub fn access_current_task<F: FnOnce(Option<&Task>)>(&self, callback: F) {
-        callback(self.tasks.shared_access().front())
+    pub fn current_task(&self) -> Option<Arc<Task>> {
+        self.tasks.shared_access().front().cloned()
     }
 
-    pub unsafe fn schedule_next_task(&self) -> ! {
+    pub fn rotate_tasks(&self) -> Option<Arc<Task>> {
         let mut lock = self.tasks.exclusive_access();
         let tasks = &mut *lock;
         let task_option = tasks.pop_back();
         if let Some(task) = task_option {
             tasks.push_front(task);
-            unsafe { tasks.front().unwrap().jump_to() }
+            tasks.front().cloned()
         } else {
             panic!("No more task to schedule.")
         }
@@ -78,10 +79,11 @@ impl IdentifierGenerator {
 
 pub static TASK_MANAGER: SpinLock<TaskManager> = SpinLock::new(TaskManager::new());
 
-fn load_elf_program() {}
-
 pub fn init_first_process_and_jump_to() -> ! {
-    let lock = TASK_MANAGER.lock();
-    lock.add_task(MemoryReader::new(INIT_PROGRAM.as_ptr(), INIT_PROGRAM.len()));
-    unsafe { lock.schedule_next_task() }
+    let task = {
+        let lock = TASK_MANAGER.lock();
+        lock.add_task(MemoryReader::new(INIT_PROGRAM.as_ptr(), INIT_PROGRAM.len()));
+        lock.current_task()
+    };
+    unsafe { task.unwrap().jump_to() }
 }

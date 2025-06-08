@@ -60,6 +60,7 @@ impl crate::task::RegisterStore for RegisterStore {
                 "7:",
                 "mov r8, {kds}",
                 "mov r9, {kcs}",
+                "swapgs",
                 "8:",
                 "push r8",
                 "push r13",

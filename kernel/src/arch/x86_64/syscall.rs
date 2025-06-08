@@ -22,7 +22,7 @@ pub unsafe fn init_syscall() {
         wrmsr(0xC0000082, handle_syscall as u64);
 
         // IA32_FMASK
-        //wrmsr(0xC0000084, 0x47700u64);
+        wrmsr(0xC0000084, 0x47700u64);
 
         // enable syscall
         let efer = rdmsr(0xC0000080);
@@ -50,8 +50,10 @@ global_asm!(
     "push r13",
     "push r14",
     "push r15",
+    "sti",
     ".endmacro",
     ".macro end_syscall",
+    "cli",
     "pop r15",
     "pop r14",
     "pop r13",

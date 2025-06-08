@@ -37,26 +37,31 @@ pub struct RegisterStore {
 }
 
 impl crate::task::RegisterStore for RegisterStore {
-    #[inline(always)]
+    #[naked]
     extern "sysv64" fn switch_to(&self) -> ! {
-        let (cs, ds) = if self.rip as usize >= KERNEL_REGION_BEGIN {
-            (KERNEL_CODE_DESCRIPTOR as u64, KERNEL_DATA_DESCRIPTOR as u64)
-        } else {
-            (
-                USER_CODE_DESCRIPTOR as u64 + 3,
-                USER_DATA_DESCRIPTOR as u64 + 3,
-            )
-        };
         unsafe {
-            asm!(
-                // stack
-                "push {0}",
-                "push {1}",
-                // rflags
-                "push {2}",
-                // cs, ip
-                "push {3}",
-                "push {4}",
+            naked_asm!(
+                "mov rax, rdi",
+                "mov r13, [rdi + 0x78]",
+                "mov r14, [rdi + 0x88]",
+                "mov r15, [rdi + 0x90]",
+                "mov r12, {krb}",
+                "cmp r15, r12",
+                "jge 7f",
+                // user
+                "mov r8, {uds}",
+                "mov r9, {ucs}",
+                "jmp 8f",
+                // kernel
+                "7:",
+                "mov r8, {kds}",
+                "mov r9, {kcs}",
+                "8:",
+                "push r8",
+                "push r13",
+                "push r14",
+                "push r9",
+                "push r15",
                 // other registers
                 "mov rbx, [rax + 0x08]",
                 "mov rcx, [rax + 0x10]",
@@ -74,14 +79,12 @@ impl crate::task::RegisterStore for RegisterStore {
                 "mov rbp, [rax + 0x70]",
                 "mov rax, [rax + 0x00]",
                 "iretq",
-                in(reg) ds,
-                in(reg) self.rsp,
-                in(reg) self.rflags,
-                in(reg) cs,
-                in(reg) self.rip,
-                in("rax") self,
-            );
-            unreachable!()
+                kds = const (KERNEL_DATA_DESCRIPTOR) as u64,
+                uds = const (USER_DATA_DESCRIPTOR + 3) as u64,
+                kcs = const (KERNEL_CODE_DESCRIPTOR) as u64,
+                ucs = const (USER_CODE_DESCRIPTOR + 3) as u64,
+                krb = const KERNEL_REGION_BEGIN
+            )
         }
     }
 

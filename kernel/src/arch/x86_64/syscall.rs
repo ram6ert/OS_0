@@ -1,7 +1,5 @@
 use core::arch::{asm, global_asm, naked_asm};
 
-use crate::trace;
-
 use super::{
     KERNEL_CODE_DESCRIPTOR, USER_CODE_DESCRIPTOR, USER_DATA_DESCRIPTOR,
     gdt::BEFORE_USER_DESCRIPTOR,
@@ -37,9 +35,16 @@ global_asm!(
     "swapgs",
     "mov gs:0x98, rsp",
     "mov rsp, gs:0x80",
-    "push rcx",
+    "push r9",
+    "push r8",
+    "push r10",
+    "push rdx",
+    "push rsi",
+    "push rdi",
+    "push rax",
+    "mov rdi, rsp",
     "push rbx",
-    "push rbp",
+    "push rcx",
     "push r11",
     "push r12",
     "push r13",
@@ -52,9 +57,15 @@ global_asm!(
     "pop r13",
     "pop r12",
     "pop r11",
-    "pop rbp",
-    "pop rbx",
     "pop rcx",
+    "pop rbx",
+    "add rsp, 8",
+    "pop rdi",
+    "pop rsi",
+    "pop rdx",
+    "pop r10",
+    "pop r8",
+    "pop r9",
     "mov rsp, gs:0x98",
     "swapgs",
     "sysretq",
@@ -72,6 +83,11 @@ global_asm!(
     sym handle_syscall_inner
 );
 
-extern "sysv64" fn handle_syscall_inner() {
-    trace!("Syscall!");
+extern "sysv64" fn handle_syscall_inner(parameters: &[u64; 7]) -> usize {
+    unsafe {
+        crate::user::handle_syscall(
+            parameters[0] as usize,
+            core::slice::from_raw_parts((&parameters[1..]).as_ptr() as *const usize, 6),
+        )
+    }
 }

@@ -13,6 +13,7 @@ mod lang_items;
 mod mm;
 mod sync;
 mod task;
+mod user;
 
 extern crate alloc;
 

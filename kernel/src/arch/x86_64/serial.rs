@@ -70,6 +70,12 @@ impl SyncSerial {
             serial: SpinLockNoIrq::new(Serial::new(port)),
         }
     }
+
+    pub fn write_byte(&self, b: u8) {
+        unsafe {
+            self.serial.lock().write_byte(b);
+        }
+    }
 }
 
 pub static mut COM1: SyncSerial = SyncSerial::new(0x3F8);

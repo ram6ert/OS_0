@@ -1,4 +1,7 @@
-use core::{arch::asm, mem::zeroed};
+use core::{
+    arch::{asm, naked_asm},
+    mem::zeroed,
+};
 
 use crate::{
     arch::x86_64::{
@@ -34,6 +37,7 @@ pub struct RegisterStore {
     kernel_rsp: u64,
     rflags: u64,
     rip: u64,
+    user_rsp: u64,
 }
 
 impl crate::task::RegisterStore for RegisterStore {
@@ -47,7 +51,7 @@ impl crate::task::RegisterStore for RegisterStore {
                 "mov r15, [rdi + 0x90]",
                 "mov r12, {krb}",
                 "cmp r15, r12",
-                "jge 7f",
+                "jae 7f",
                 // user
                 "mov r8, {uds}",
                 "mov r9, {ucs}",
@@ -83,18 +87,9 @@ impl crate::task::RegisterStore for RegisterStore {
                 uds = const (USER_DATA_DESCRIPTOR + 3) as u64,
                 kcs = const (KERNEL_CODE_DESCRIPTOR) as u64,
                 ucs = const (USER_CODE_DESCRIPTOR + 3) as u64,
-                krb = const KERNEL_REGION_BEGIN
+                krb = const KERNEL_REGION_BEGIN,
             )
         }
-    }
-
-    fn ksp(&self) -> usize {
-        self.kernel_rsp as usize
-    }
-
-    fn update(&mut self, pc: usize, sp: usize) {
-        self.rip = pc as u64;
-        self.rsp = sp as u64;
     }
 
     fn new(pc: usize, sp: usize, ksp: usize) -> Self {
@@ -105,12 +100,6 @@ impl crate::task::RegisterStore for RegisterStore {
 
         result.rflags = 0x200;
         result
-    }
-}
-
-impl RegisterStore {
-    pub fn update_rflags(&mut self, rflags: u64) {
-        self.rflags = rflags;
     }
 }
 

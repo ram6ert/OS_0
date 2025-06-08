@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use super::gdt;
+use super::gdt::KERNEL_CODE_DESCRIPTOR;
 use alloc::sync::Arc;
 use core::arch::{asm, global_asm, naked_asm};
 use lazy_static::lazy_static;
@@ -223,41 +224,41 @@ struct InterruptionStackFrameWithErrorCode {
 
 global_asm!(
     ".macro begin_irq",
-    "mov gs:0x00, rax",
-    "mov gs:0x08, rbx",
-    "mov gs:0x10, rcx",
-    "mov gs:0x18, rdx",
-    "mov gs:0x20, rsi",
-    "mov gs:0x28, rdi",
-    "mov gs:0x30, r8",
-    "mov gs:0x38, r9",
-    "mov gs:0x40, r10",
-    "mov gs:0x48, r11",
-    "mov gs:0x50, r12",
-    "mov gs:0x58, r13",
-    "mov gs:0x60, r14",
-    "mov gs:0x68, r15",
-    "mov gs:0x70, rbp",
+    "push rax",
+    "push rbx",
+    "push rcx",
+    "push rdx",
+    "push rsi",
+    "push rdi",
+    "push r8",
+    "push r9",
+    "push r10",
+    "push r11",
+    "push r12",
+    "push r13",
+    "push r14",
+    "push r15",
+    "push rbp",
     ".endmacro",
 );
 
 global_asm!(
     ".macro end_irq",
-    "mov rax, gs:0x00",
-    "mov rbx, gs:0x08",
-    "mov rcx, gs:0x10",
-    "mov rdx, gs:0x18",
-    "mov rsi, gs:0x20",
-    "mov rdi, gs:0x28",
-    "mov r8, gs:0x30",
-    "mov r9, gs:0x38",
-    "mov r10, gs:0x40",
-    "mov r11, gs:0x48",
-    "mov r12, gs:0x50",
-    "mov r13, gs:0x58",
-    "mov r14, gs:0x60",
-    "mov r15, gs:0x68",
-    "mov rbp, gs:0x70",
+    "pop rbp",
+    "pop r15",
+    "pop r14",
+    "pop r13",
+    "pop r12",
+    "pop r11",
+    "pop r10",
+    "pop r9",
+    "pop r8",
+    "pop rdi",
+    "pop rsi",
+    "pop rdx",
+    "pop rcx",
+    "pop rbx",
+    "pop rax",
     ".endmacro",
 );
 
@@ -267,7 +268,7 @@ macro_rules! make_interruption_handler {
         unsafe extern "C" fn $id() {
             unsafe {
                 naked_asm!(
-                    "cmp word ptr [rsp + 8], 8",
+                    "cmp word ptr [rsp + 8], {2}",
                     "je 2f",
                     // user, do not switch stack, switch gs
                     "swapgs",
@@ -281,10 +282,10 @@ macro_rules! make_interruption_handler {
                     "jmp 3f",
                     // kernel, switch stack
                     "2:",
-                    "begin_irq",
                     "push rbp",
                     "mov rbp, rsp",
                     "mov rsp, {0}",
+                    "begin_irq",
                     "mov rdi, rbp",
                     "add rdi, 8",
                     "call {1}",
@@ -295,6 +296,7 @@ macro_rules! make_interruption_handler {
                     "iretq",
                     const KERNEL_ISTACK_END,
                     sym $inner,
+                    const KERNEL_CODE_DESCRIPTOR,
                 );
             }
         }
@@ -304,7 +306,7 @@ macro_rules! make_interruption_handler {
         unsafe extern "C" fn $id() {
             unsafe {
                 naked_asm!(
-                    "cmp word ptr [rsp + 8], 8",
+                    "cmp word ptr [rsp + 8], {2}",
                     "je 2f",
                     // user, do not switch stack, switch gs
                     "swapgs",
@@ -318,10 +320,10 @@ macro_rules! make_interruption_handler {
                     "jmp 3f",
                     // kernel, switch stack
                     "2:",
-                    "begin_irq",
                     "push rbp",
                     "mov rbp, rsp",
                     "mov rsp, {0}",
+                    "begin_irq",
                     "mov rdi, rbp",
                     "add rdi, 8",
                     "call {1}",
@@ -333,6 +335,7 @@ macro_rules! make_interruption_handler {
                     "iretq",
                     const KERNEL_ISTACK_END,
                     sym $inner,
+                    const KERNEL_CODE_DESCRIPTOR
                 );
             }
         }
@@ -391,22 +394,50 @@ extern "sysv64" fn general_proection_inner(frame: &InterruptionStackFrameWithErr
     );
 }
 
-make_interruption_handler!(timer => timer_inner);
+#[naked]
+unsafe extern "C" fn timer() {
+    unsafe {
+        naked_asm!(
+            "cli",
+            "cmp word ptr [rsp + 8], {3}",
+            "je 2f",
+            "swapgs",
+            "2:",
+            "mov gs:0x00, rax",
+            "mov gs:0x08, rbx",
+            "mov gs:0x10, rcx",
+            "mov gs:0x18, rdx",
+            "mov gs:0x20, rsi",
+            "mov gs:0x28, rdi",
+            "mov gs:0x30, r8",
+            "mov gs:0x38, r9",
+            "mov gs:0x40, r10",
+            "mov gs:0x48, r11",
+            "mov gs:0x50, r12",
+            "mov gs:0x58, r13",
+            "mov gs:0x60, r14",
+            "mov gs:0x68, r15",
+            "mov gs:0x70, rbp",
+            "mov rax, [rsp + 0x18]",
+            "mov qword ptr gs:0x78, rax",
+            "mov rdi, rax",
+            "mov rax, [rsp + 0x10]",
+            "mov qword ptr gs:0x88, rax",
+            "mov rax, [rsp]",
+            "mov qword ptr gs:0x90, rax",
+            "mov rsp, {0}",
+            "call {1}",
+            "jmp {2}",
+            const KERNEL_ISTACK_END,
+            sym restore_timer,
+            sym schedule_next_task,
+            const KERNEL_CODE_DESCRIPTOR
+        )
+    }
+}
 
-extern "sysv64" fn timer_inner(frame: &mut InterruptionStackFrame) -> () {
+extern "sysv64" fn restore_timer() {
     unsafe {
         send_eoi(0);
     }
-    let current_task = TASK_MANAGER.lock().current_task();
-    if let Some(current_task) = current_task {
-        // we have to.
-        let ptr = Arc::as_ptr(&current_task) as *mut Task;
-        unsafe {
-            (*ptr)
-                .registers
-                .update(frame.rip as usize, frame.rsp as usize);
-            (*ptr).registers.update_rflags(frame.rflags);
-        }
-    }
-    schedule_next_task()
 }

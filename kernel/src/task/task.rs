@@ -1,7 +1,7 @@
 use crate::{
     arch::{
-        RegisterStore as ArchRegisterStore, mm::page_table::PageTable as ArchPageTable,
-        x86_64::task::set_structure_base,
+        RegisterStore as ArchRegisterStore, disable_irq,
+        mm::page_table::PageTable as ArchPageTable, x86_64::task::set_structure_base,
     },
     mm::{
         INTERRUPTION_STACK,
@@ -18,10 +18,7 @@ use crate::{
 
 pub trait RegisterStore {
     extern "sysv64" fn switch_to(&self) -> !;
-    fn ksp(&self) -> usize;
     fn new(pc: usize, sp: usize, ksp: usize) -> Self;
-
-    fn update(&mut self, pc: usize, sp: usize);
 }
 
 #[repr(C)]
@@ -38,7 +35,7 @@ impl Task {
         let registers = ArchRegisterStore::new(
             entry as usize,
             APP_STACK_END,
-            KERNEL_STACK_BEGIN + (2 * id + 2) * FRAME_SIZE,
+            KERNEL_STACK_BEGIN + (2 * id) * FRAME_SIZE,
         );
         Self {
             registers,
@@ -88,7 +85,7 @@ impl Task {
         // 4. task kernel stack, 4K
         let stack_region_begin = VirtAddress::new(KERNEL_STACK_BEGIN)
             .get_page()
-            .offset(2 * id as isize + 1);
+            .offset(2 * id as isize - 1);
         let kstack = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
         result.map(
             &MappingRegion {
@@ -127,7 +124,9 @@ impl Task {
     pub unsafe fn jump_to(&self) -> ! {
         unsafe {
             set_structure_base(self as *const Task as u64, false);
-            self.page_table.bind_and_switch_stack(self.registers.ksp());
+            disable_irq();
+            // temporarily use int stack to continue our rust code
+            self.page_table.bind_and_switch_stack(KERNEL_ISTACK_END);
             self.registers.switch_to();
         }
     }

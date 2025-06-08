@@ -23,6 +23,9 @@ pub unsafe fn init_syscall() {
         // LSTAR -> handler
         wrmsr(0xC0000082, handle_syscall as u64);
 
+        // IA32_FMASK
+        //wrmsr(0xC0000084, 0x47700u64);
+
         // enable syscall
         let efer = rdmsr(0xC0000080);
         wrmsr(0xC0000080, efer | 1);
@@ -32,42 +35,30 @@ pub unsafe fn init_syscall() {
 global_asm!(
     ".macro start_syscall",
     "swapgs",
-    "mov gs:0x00, rax",
-    "mov gs:0x08, rbx",
-    "mov gs:0x10, rcx",
-    "mov gs:0x18, rdx",
-    "mov gs:0x20, rsi",
-    "mov gs:0x28, rdi",
-    "mov gs:0x30, r8",
-    "mov gs:0x38, r9",
-    "mov gs:0x40, r10",
-    "mov gs:0x48, r11",
-    "mov gs:0x50, r12",
-    "mov gs:0x58, r13",
-    "mov gs:0x60, r14",
-    "mov gs:0x68, r15",
-    "mov gs:0x70, rbp",
-    "mov gs:0x78, rsp",
+    "mov gs:0x98, rsp",
     "mov rsp, gs:0x80",
+    "push rcx",
+    "push rbx",
+    "push rbp",
+    "push r11",
+    "push r12",
+    "push r13",
+    "push r14",
+    "push r15",
     ".endmacro",
     ".macro end_syscall",
-    //"mov rax, gs:0x00",
-    "mov rbx, gs:0x08",
-    "mov rcx, gs:0x10",
-    "mov rdx, gs:0x18",
-    "mov rsi, gs:0x20",
-    "mov rdi, gs:0x28",
-    "mov r8, gs:0x30",
-    "mov r9, gs:0x38",
-    "mov r10, gs:0x40",
-    "mov r11, gs:0x48",
-    "mov r12, gs:0x50",
-    "mov r13, gs:0x58",
-    "mov r14, gs:0x60",
-    "mov r15, gs:0x68",
-    "mov rbp, gs:0x70",
+    "pop r15",
+    "pop r14",
+    "pop r13",
+    "pop r12",
+    "pop r11",
+    "pop rbp",
+    "pop rbx",
+    "pop rcx",
+    "mov rsp, gs:0x98",
     "swapgs",
-    ".endmacro",
+    "sysretq",
+    ".endmacro"
 );
 
 global_asm!(
@@ -75,23 +66,9 @@ global_asm!(
     .global handle_syscall
     handle_syscall:
     start_syscall
-
-    mov rax, {0}
-    push rax
-    mov rax, gs:0x78
-    push rax
-    push r11
-    mov rax, {1}
-    push rax
-    push rcx
-
-    mov rax, gs:0x00
-    call {2}
+    call {}
     end_syscall
-    iretq
     "#,
-    const USER_DATA_DESCRIPTOR + 3,
-    const USER_CODE_DESCRIPTOR + 3,
     sym handle_syscall_inner
 );
 

@@ -29,7 +29,7 @@ impl DirectBlockAllocator {
     fn alloc(&mut self, layout: Layout) -> *mut u8 {
         unsafe {
             self.try_alloc_from_ceiling(layout)
-                .or(self.try_alloc_from_hole(layout))
+                .or_else(|| self.try_alloc_from_hole(layout))
                 .map(|x| self.base.offset(x as isize))
                 .unwrap_or(core::ptr::null_mut())
         }

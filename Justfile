@@ -13,8 +13,8 @@ image-dev: kernel-dev
     mkdir -p build/dev
     cd image_builder && cargo run --release -- ../kernel/target/x86_64-os0/debug/kernel ../build/dev
 qemu: image
-    qemu-system-x86_64 -drive format=raw,file=build/bios.img -serial stdio
+    qemu-system-x86_64 -drive format=raw,file=build/bios.img -serial stdio -no-reboot
 qemu-debug: image-dev
-    qemu-system-x86_64 -drive format=raw,file=build/dev/bios.img -d in_asm,int -no-reboot
+    qemu-system-x86_64 -drive format=raw,file=build/dev/bios.img -s -S -nographic
 clean:
     rm -r build/* kernel/target/* image_builder/target/* user/target/*

@@ -5,7 +5,7 @@ use alloc::{collections::LinkedList, sync::Arc, vec::Vec};
 use crate::{
     INIT_PROGRAM,
     mm::utils::free_initial_page_table,
-    sync::{RwLock, SpinLock},
+    sync::{RwLock, SpinLock, SpinLockNoIrq},
     task::elf::{MemoryReader, Readable},
 };
 
@@ -76,7 +76,7 @@ impl IdentifierGenerator {
     }
 }
 
-pub static TASK_MANAGER: SpinLock<TaskManager> = SpinLock::new(TaskManager::new());
+pub static TASK_MANAGER: SpinLockNoIrq<TaskManager> = SpinLockNoIrq::new(TaskManager::new());
 
 pub fn init_first_process_and_jump_to() -> ! {
     let task = {

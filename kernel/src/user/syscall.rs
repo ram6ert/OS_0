@@ -1,5 +1,3 @@
-use core::{fmt::Write, str};
-
 use crate::{
     INIT_PROGRAM,
     arch::x86_64::serial::COM1,

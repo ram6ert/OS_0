@@ -32,7 +32,7 @@ pub unsafe fn borrow_from_phys_addr_mut<T>(addr: PhysAddress) -> &'static mut T 
 }
 
 lazy_static! {
-    pub static ref INTERRUPTION_STACK: Frame = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
+    pub static ref INTERRUPTION_STACK: Frame = FRAME_ALLOCATOR.lock().alloc(2).unwrap().start();
 }
 
 #[derive(Clone)]

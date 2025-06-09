@@ -35,7 +35,7 @@ impl Task {
         let registers = ArchRegisterStore::new(
             entry as usize,
             APP_STACK_END,
-            KERNEL_STACK_BEGIN + (2 * id) * FRAME_SIZE,
+            KERNEL_STACK_BEGIN + (4 * id) * FRAME_SIZE,
         );
         Self {
             registers,
@@ -70,28 +70,28 @@ impl Task {
             PageFlags::Writable,
         );
 
-        // 3. int stack, 4K
-        let istack_region_begin = VirtAddress::new(KERNEL_ISTACK_END - 1).get_page();
+        // 3. int stack, 8K
+        let istack_region_begin = VirtAddress::new(KERNEL_ISTACK_END - FRAME_SIZE - 1).get_page();
         let istack = *INTERRUPTION_STACK;
         result.map(
             &MappingRegion {
                 phys_begin: istack,
                 virt_begin: istack_region_begin,
-                num: 1,
+                num: 2,
             },
             PageFlags::Writable,
         );
 
-        // 4. task kernel stack, 4K
+        // 4. task kernel stack, 8K
         let stack_region_begin = VirtAddress::new(KERNEL_STACK_BEGIN)
             .get_page()
-            .offset(2 * id as isize - 1);
-        let kstack = FRAME_ALLOCATOR.lock().alloc(1).unwrap().start();
+            .offset(4 * id as isize - 2);
+        let kstack = FRAME_ALLOCATOR.lock().alloc(2).unwrap().start();
         result.map(
             &MappingRegion {
                 phys_begin: kstack,
                 virt_begin: stack_region_begin,
-                num: 1,
+                num: 2,
             },
             PageFlags::Writable,
         );

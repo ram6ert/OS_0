@@ -8,10 +8,12 @@ const PIC_MASTER_DATA_PORT: u16 = 0x21;
 const PIC_SLAVE_DATA_PORT: u16 = 0xA1;
 
 #[inline(always)]
-pub unsafe fn disable_irq() {
+pub unsafe fn disable_irq() -> bool {
+    let result = get_irq_enabled();
     unsafe {
         asm!("cli");
     }
+    result
 }
 
 #[inline(always)]
@@ -60,6 +62,7 @@ pub unsafe fn init_8259a() {
     }
 }
 
+#[inline(always)]
 pub unsafe fn send_eoi(idx: u8) {
     if idx < 8 {
         unsafe {
@@ -71,4 +74,13 @@ pub unsafe fn send_eoi(idx: u8) {
             out8(PIC_MASTER_CMD_PORT, 0x20);
         }
     }
+}
+
+#[inline(always)]
+pub fn get_irq_enabled() -> bool {
+    let mut result: usize = 0;
+    unsafe {
+        asm!("pushfq", "pop rax", inout("rax") result);
+    }
+    result & 0x200 != 0
 }

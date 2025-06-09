@@ -1,6 +1,5 @@
 use core::{
     cell::UnsafeCell,
-    marker::PhantomData,
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
@@ -10,9 +9,11 @@ use crate::arch::{disable_irq, enable_irq};
 pub type SpinLock<T> = Mutex<T, Spin>;
 pub type SpinLockNoIrq<T> = Mutex<T, SpinNoIrq>;
 
-pub trait Listener {
-    fn before_lock();
-    fn after_unlock();
+pub trait Listener: Sync + Send + Sized {
+    fn before_lock(&self) {}
+    fn after_lock(&self) {}
+    fn before_unlock(&self) {}
+    fn after_unlock(&self) {}
 }
 
 pub struct MutexGuard<'a, T, L: Listener> {
@@ -22,12 +23,14 @@ pub struct MutexGuard<'a, T, L: Listener> {
 pub struct Mutex<T, L: Listener> {
     data: UnsafeCell<T>,
     _lock: AtomicBool,
-    _phantom: PhantomData<L>,
+    listener: L,
 }
 
 pub struct Spin {}
 
-pub struct SpinNoIrq {}
+pub struct SpinNoIrq {
+    irq_enabled: AtomicBool,
+}
 
 pub struct RwLock<T> {
     data: UnsafeCell<T>,
@@ -59,8 +62,9 @@ impl<'a, T, L: Listener> DerefMut for MutexGuard<'a, T, L> {
 
 impl<'a, T, L: Listener> Drop for MutexGuard<'a, T, L> {
     fn drop(&mut self) {
+        self.lock.listener.before_unlock();
         self.lock._lock.store(false, Ordering::Release);
-        L::after_unlock();
+        self.lock.listener.after_unlock();
     }
 }
 
@@ -78,12 +82,12 @@ impl<T, L: Listener> Mutex<T, L> {
         Self {
             data: UnsafeCell::new(object),
             _lock: AtomicBool::new(false),
-            _phantom: PhantomData {},
+            listener: unsafe { core::mem::MaybeUninit::zeroed().assume_init() },
         }
     }
 
     pub fn lock(&self) -> MutexGuard<T, L> {
-        L::before_lock();
+        self.listener.before_lock();
         while self
             ._lock
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
@@ -91,6 +95,7 @@ impl<T, L: Listener> Mutex<T, L> {
         {
             core::hint::spin_loop();
         }
+        self.listener.after_lock();
         MutexGuard::new(self)
     }
 
@@ -100,23 +105,20 @@ impl<T, L: Listener> Mutex<T, L> {
 }
 
 // Spin
-impl Listener for Spin {
-    fn before_lock() {}
-
-    fn after_unlock() {}
-}
+impl Listener for Spin {}
 
 // SpinNoIrq
 impl Listener for SpinNoIrq {
-    fn before_lock() {
-        unsafe {
-            disable_irq();
-        }
+    fn before_lock(&self) {
+        self.irq_enabled
+            .store(unsafe { disable_irq() }, Ordering::Release);
     }
 
-    fn after_unlock() {
+    fn after_unlock(&self) {
         unsafe {
-            enable_irq();
+            if self.irq_enabled.load(Ordering::Acquire) {
+                enable_irq();
+            }
         }
     }
 }

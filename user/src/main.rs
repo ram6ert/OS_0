@@ -43,6 +43,11 @@ fn syield() -> usize {
     result
 }
 
+fn exit() -> ! {
+    let result: usize = 6;
+    unsafe { asm!("syscall", in("rax") result, options(noreturn)) }
+}
+
 fn delay() {
     //unsafe { asm!("mov rcx, 0xffffff", "634:", "loop 634b", out("rcx") _) }
     syield();
@@ -51,8 +56,11 @@ fn delay() {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {
     let pid = getpid();
+    write(1, &[(pid + 48) as u8, '\n' as u8]);
     if pid == 1 {
         spawn();
+    } else {
+        exit();
     }
     loop {
         write(1, &[(pid + 48) as u8, '\n' as u8]);

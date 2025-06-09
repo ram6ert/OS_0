@@ -14,6 +14,8 @@ pub fn handle_syscall(num: usize, parameters: &[usize]) -> usize {
         syscall_spawn(parameters)
     } else if num == 5 {
         syscall_yield(parameters)
+    } else if num == 6 {
+        syscall_exit(parameters)
     } else {
         !0
     }
@@ -59,3 +61,13 @@ fn syscall_yield(_parameters: &[usize]) -> usize {
     }
     0
 }
+
+fn syscall_exit(_parameters: &[usize]) -> ! {
+    {
+        let mut lock = TASK_MANAGER.lock();
+        let id = lock.current_task().unwrap().id();
+        lock.remove_task(id);
+    }
+    unsafe { schedule_next_task() }
+}
+

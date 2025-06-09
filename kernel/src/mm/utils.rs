@@ -9,6 +9,7 @@ use crate::{
         frame_allocator::FRAME_ALLOCATOR,
     },
     sync::SpinLock,
+    trace,
 };
 
 use super::definitions::{
@@ -55,6 +56,7 @@ lazy_static! {
 }
 
 pub fn init_mm() {
+    trace!("Initializing mm...");
     let mut ipt = INITIAL_PAGE_TABLE.lock();
 
     *ipt = Some(ArchPageTable::from(unsafe {

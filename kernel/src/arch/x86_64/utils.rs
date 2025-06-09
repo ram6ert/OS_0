@@ -3,6 +3,7 @@ use core::arch::asm;
 use crate::{
     arch::{disable_irq, enable_external_irq},
     mm::definitions::{Frame, PageTable},
+    trace,
 };
 
 use super::{
@@ -12,6 +13,7 @@ use super::{
 
 pub fn init() {
     logging::init();
+    trace!("Logging initialized.");
     unsafe {
         disable_irq();
         load_gdt();
@@ -19,6 +21,10 @@ pub fn init() {
         init_8259a();
         init_timer();
         enable_external_irq();
+    }
+
+    trace!("Initializing misc...");
+    unsafe {
         init_nonexecutable_paging();
         init_syscall();
     }

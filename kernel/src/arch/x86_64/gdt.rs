@@ -2,7 +2,7 @@
 
 use core::{arch::asm, u16};
 
-use crate::mm::definitions::KERNEL_ISTACK_END;
+use crate::{mm::definitions::KERNEL_ISTACK_END, trace};
 
 #[repr(transparent)]
 struct GdtEntry(u64);
@@ -73,6 +73,7 @@ struct Gdtr {
 }
 
 pub unsafe fn load_gdt() {
+    trace!("Loading GDT...");
     let tss_base = &TSS as *const TssEntry as u64;
     let tss_limit = (size_of_val(&TSS) - 1) as u64;
     unsafe {
@@ -112,4 +113,5 @@ pub unsafe fn load_gdt() {
             out("rax") _,
         );
     }
+    trace!("GDT loaded.");
 }

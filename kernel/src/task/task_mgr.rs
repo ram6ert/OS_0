@@ -7,6 +7,7 @@ use crate::{
     mm::utils::free_initial_page_table,
     sync::{RwLock, SpinLock, SpinLockNoIrq},
     task::elf::{MemoryReader, Readable},
+    trace,
 };
 
 use super::task::Task;
@@ -79,12 +80,14 @@ impl IdentifierGenerator {
 pub static TASK_MANAGER: SpinLockNoIrq<TaskManager> = SpinLockNoIrq::new(TaskManager::new());
 
 pub fn init_first_process_and_jump_to() -> ! {
+    trace!("Preparing for init task...");
     let task = {
         let lock = TASK_MANAGER.lock();
         lock.add_task(MemoryReader::new(INIT_PROGRAM.as_ptr(), INIT_PROGRAM.len()));
         lock.current_task()
     };
     free_initial_page_table();
+    trace!("Init starts.");
     unsafe { task.unwrap().jump_to() }
 }
 

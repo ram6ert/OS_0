@@ -1,5 +1,7 @@
 use core::arch::asm;
 
+use crate::trace;
+
 use super::{io::out8, utils::wrmsr};
 
 const PIC_MASTER_CMD_PORT: u16 = 0x20;
@@ -39,6 +41,7 @@ pub unsafe fn set_gsbase(base: u64) {
 }
 
 pub unsafe fn init_8259a() {
+    trace!("Initializing PIC...");
     unsafe {
         out8(PIC_MASTER_DATA_PORT, 0xff);
         out8(PIC_SLAVE_DATA_PORT, 0xff);

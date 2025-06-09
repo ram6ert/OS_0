@@ -1,9 +1,8 @@
 use lazy_static::lazy_static;
 
 use crate::{
-    arch::{
-        mm::page_table::PageTable as ArchPageTable, x86_64::utils::get_current_page_table_frame,
-    },
+    arch::mm::get_current_page_table_frame,
+    arch::mm::page_table::PageTable as ArchPageTable,
     mm::{
         definitions::{FRAME_SIZE, FrameAllocator, KERNEL_HEAP_BEGIN, KERNEL_HEAP_SIZE, PageFlags},
         frame_allocator::FRAME_ALLOCATOR,

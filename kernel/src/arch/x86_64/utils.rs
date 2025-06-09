@@ -62,14 +62,3 @@ unsafe fn init_nonexecutable_paging() {
         wrmsr(0xC0000080, efer | 0x800);
     }
 }
-
-pub unsafe fn get_current_page_table_frame() -> Frame {
-    let cr3: usize;
-    unsafe {
-        asm!(
-            "mov rax, cr3",
-            out("rax") cr3
-        );
-    }
-    Frame::new((cr3 >> 12) & ((1 << 36) - 1))
-}

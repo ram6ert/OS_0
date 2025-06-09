@@ -35,8 +35,17 @@ fn spawn() -> usize {
     result
 }
 
+fn syield() -> usize {
+    let mut result: usize = 5;
+    unsafe {
+        asm!("syscall", inout("rax") result, out("rcx") _, out("r11") _);
+    }
+    result
+}
+
 fn delay() {
-    unsafe { asm!("mov rcx, 0xffffff", "634:", "loop 634b", out("rcx") _) }
+    //unsafe { asm!("mov rcx, 0xffffff", "634:", "loop 634b", out("rcx") _) }
+    syield();
 }
 
 #[unsafe(no_mangle)]

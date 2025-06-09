@@ -87,3 +87,10 @@ pub fn get_irq_enabled() -> bool {
     }
     result & 0x200 != 0
 }
+
+#[inline(always)]
+pub unsafe fn wait_for_irq() {
+    unsafe {
+        asm!("hlt");
+    }
+}

@@ -16,7 +16,7 @@ pub use gdt::{
     load_gdt,
 };
 
-pub use int::{disable_irq, enable_external_irq, enable_irq, get_irq_enabled};
+pub use int::{disable_irq, enable_external_irq, enable_irq, get_irq_enabled, wait_for_irq};
 
 pub use idt::load_idt;
 

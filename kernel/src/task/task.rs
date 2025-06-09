@@ -123,9 +123,9 @@ impl Task {
     #[inline(always)]
     pub unsafe fn jump_to(&self) -> ! {
         unsafe {
+            disable_irq();
             set_structure_base(self as *const Task as u64, false);
             // temporarily use int stack to continue our rust code
-            disable_irq();
             self.page_table.bind_and_switch_stack(KERNEL_ISTACK_END);
             self.registers.switch_to();
         }

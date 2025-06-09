@@ -5,7 +5,7 @@ use alloc::{collections::LinkedList, sync::Arc, vec::Vec};
 use crate::{
     INIT_PROGRAM,
     mm::utils::free_initial_page_table,
-    sync::{RwLock, SpinLock, SpinLockNoIrq},
+    sync::SpinLockNoIrq,
     task::elf::{MemoryReader, Readable},
     trace,
 };
@@ -13,8 +13,9 @@ use crate::{
 use super::task::Task;
 
 pub struct TaskManager {
-    tasks: RwLock<LinkedList<Arc<Task>>>,
-    ids: SpinLock<IdentifierGenerator>,
+    tasks: LinkedList<Task>,
+    current_task: Option<Task>,
+    ids: IdentifierGenerator,
 }
 
 struct IdentifierGenerator {
@@ -25,31 +26,51 @@ struct IdentifierGenerator {
 impl TaskManager {
     pub const fn new() -> Self {
         Self {
-            tasks: RwLock::new(LinkedList::new()),
-            ids: SpinLock::new(IdentifierGenerator::new(1)),
+            tasks: LinkedList::new(),
+            current_task: None,
+            ids: IdentifierGenerator::new(1),
         }
     }
 
-    pub fn add_task<R: Readable>(&self, elf_file: R) {
-        let id = self.ids.lock().alloc();
+    pub fn add_task<R: Readable>(&mut self, elf_file: R) {
+        let id = self.ids.alloc();
         let task = Task::new(id, elf_file);
-        let arc = Arc::new(task);
-        self.tasks.exclusive_access().push_back(arc);
+        self.tasks.push_back(task);
     }
 
-    pub fn current_task(&self) -> Option<Arc<Task>> {
-        self.tasks.shared_access().front().cloned()
+    pub fn current_task(&self) -> Option<&Task> {
+        self.current_task.as_ref()
     }
 
-    pub fn rotate_tasks(&self) -> Option<Arc<Task>> {
-        let mut lock = self.tasks.exclusive_access();
-        let tasks = &mut *lock;
-        let task_option = tasks.pop_back();
-        if let Some(task) = task_option {
-            tasks.push_front(task);
-            tasks.front().cloned()
+    pub fn rotate_tasks(&mut self) -> Option<&Task> {
+        if self.tasks.is_empty() {
+            self.current_task.as_ref()
         } else {
-            panic!("No more task to schedule.")
+            let next_task = self.tasks.pop_back();
+            if self.current_task().is_some() {
+                self.tasks.push_front(self.current_task.take().unwrap());
+            }
+            self.current_task = next_task;
+            self.current_task.as_ref()
+        }
+    }
+
+    pub fn remove_task(&mut self, id: usize) {
+        if let Some(ref current) = self.current_task {
+            if current.id() == id {
+                self.current_task = None;
+                self.rotate_tasks();
+                return;
+            }
+        }
+
+        let mut cursor = self.tasks.cursor_front_mut();
+        while let Some(task) = cursor.current() {
+            if task.id() == id {
+                cursor.remove_current();
+                break;
+            }
+            cursor.move_next();
         }
     }
 }
@@ -82,20 +103,18 @@ pub static TASK_MANAGER: SpinLockNoIrq<TaskManager> = SpinLockNoIrq::new(TaskMan
 pub fn init_first_process_and_jump_to() -> ! {
     trace!("Preparing for init task...");
     let task = {
-        let lock = TASK_MANAGER.lock();
+        let mut lock = TASK_MANAGER.lock();
         lock.add_task(MemoryReader::new(INIT_PROGRAM.as_ptr(), INIT_PROGRAM.len()));
-        lock.current_task()
+        lock.rotate_tasks();
+        lock.current_task().expect("Failure create init.") as *const Task
     };
     free_initial_page_table();
     trace!("Init starts.");
-    unsafe { task.unwrap().jump_to() }
+    unsafe { (*task).jump_to() }
 }
 
-pub fn schedule_next_task() -> ! {
-    let task = TASK_MANAGER.lock().rotate_tasks();
-    if let Some(task) = task {
-        unsafe { task.jump_to() }
-    } else {
-        panic!("No task to run.");
-    }
+pub unsafe fn schedule_next_task() -> ! {
+    TASK_MANAGER.lock().rotate_tasks();
+    let task = TASK_MANAGER.lock().current_task().expect("No task to run.") as *const Task;
+    unsafe { (*task).jump_to() }
 }

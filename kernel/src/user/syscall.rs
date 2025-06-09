@@ -2,7 +2,7 @@ use crate::{
     INIT_PROGRAM,
     arch::x86_64::{serial::COM1, wait_for_irq},
     mm::definitions::KERNEL_REGION_BEGIN,
-    task::{MemoryReader, TASK_MANAGER},
+    task::{MemoryReader, TASK_MANAGER, schedule_next_task},
 };
 
 pub fn handle_syscall(num: usize, parameters: &[usize]) -> usize {
